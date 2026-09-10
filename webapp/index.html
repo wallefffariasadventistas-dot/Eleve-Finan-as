@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eleve — Sistema Financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-monogram">E</div>
+      <h1>Eleve</h1>
+      <p>Sistema financeiro pessoal</p>
+    </div>
+    <form id="login-form" class="login-card">
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" id="login-email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" id="login-password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      <p id="login-error" class="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="app-shell" class="shell" hidden>
+  <nav>
+    <div class="nav-brand">
+      <div class="nav-monogram">E</div>
+      <h1>Eleve</h1>
+      <p>Financeiro</p>
+    </div>
+    <div class="nav-items">
+      <button class="nav-item active" data-section="dashboard">📊 Dashboard</button>
+      <button class="nav-item" data-section="despesas">💳 Despesas</button>
+      <button class="nav-item" data-section="viagens">✈️ Relatórios de Viagem</button>
+      <button class="nav-item" data-section="reembolso">🔁 Reembolso</button>
+    </div>
+    <button id="logout-btn" class="logout-btn">Sair</button>
+  </nav>
+
+  <main>
+    <section id="section-dashboard" class="section active">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Visão geral</p>
+          <h2 class="page-title">Dashboard</h2>
+        </div>
+      </header>
+      <div id="dashboard-metrics" class="metrics"></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Últimos lançamentos</span></div>
+        <div class="table-wrap"><table id="dashboard-recent"><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="section-despesas" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Lançamentos</p>
+          <h2 class="page-title">Despesas</h2>
+        </div>
+        <button class="btn btn-primary" id="btn-nova-despesa">+ Lançar despesa</button>
+      </header>
+      <div class="filter-bar">
+        <select id="filtro-tipo">
+          <option value="">Todos os tipos</option>
+          <option value="viagem">Viagem</option>
+          <option value="departamento">Departamento</option>
+          <option value="pessoal">Pessoal</option>
+        </select>
+        <select id="filtro-status">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente de reembolso</option>
+          <option value="enviado">Enviado para reembolso</option>
+          <option value="reembolsado">Reembolsado</option>
+          <option value="nao_reembolsavel">Não reembolsável</option>
+        </select>
+        <button class="btn btn-sm" id="btn-enviar-reembolso">Enviar selecionadas para reembolso</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table id="tabela-despesas">
+            <thead>
+              <tr>
+                <th></th><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th>
+                <th>Origem</th><th>Status</th><th>Valor</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-viagens" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Viagens</p>
+          <h2 class="page-title">Relatórios de Viagem</h2>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-relatorio">+ Novo relatório</button>
+      </header>
+      <div id="lista-relatorios"></div>
+    </section>
+
+    <section id="section-reembolso" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Reembolso</p>
+          <h2 class="page-title">Enviar para reembolso</h2>
+        </div>
+      </header>
+      <div class="card">
+        <div class="card-body">
+          <p class="page-subtitle">Envie todas as despesas pendentes (viagem + departamento) de uma vez, por e-mail ou WhatsApp, para quem processa o reembolso.</p>
+          <div class="form-actions" style="justify-content:flex-start; margin-top: 18px;">
+            <button class="btn btn-primary" data-canal="email">Enviar tudo por e-mail</button>
+            <button class="btn" data-canal="whatsapp">Enviar tudo por WhatsApp</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-despesa">
+  <div class="modal">
+    <p class="modal-eyebrow">Lançamento manual</p>
+    <h2>Nova despesa</h2>
+    <form id="form-despesa">
+      <div class="form-grid">
+        <div class="field"><label>Data</label><input type="date" id="d-data" required /></div>
+        <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" id="d-valor" required /></div>
+        <div class="field">
+          <label>Categoria</label>
+          <select id="d-categoria">
+            <option value="combustivel">Combustível</option>
+            <option value="hospedagem">Hospedagem</option>
+            <option value="alimentacao">Alimentação</option>
+            <option value="transporte">Transporte</option>
+            <option value="carro_alugado">Carro alugado</option>
+            <option value="material">Material</option>
+            <option value="servicos">Serviços</option>
+            <option value="outros" selected>Outros</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tipo</label>
+          <select id="d-tipo">
+            <option value="viagem">Viagem</option>
+            <option value="departamento">Departamento</option>
+            <option value="pessoal">Pessoal</option>
+          </select>
+        </div>
+        <div class="field" id="campo-relatorio" hidden>
+          <label>Relatório de viagem</label>
+          <select id="d-relatorio"></select>
+        </div>
+      </div>
+      <div class="form-grid wide">
+        <div class="field"><label>Descrição</label><textarea id="d-descricao"></textarea></div>
+        <div class="field"><label>Comprovante (opcional)</label><input type="file" id="d-comprovante" accept="image/*,application/pdf" /></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-despesa">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-relatorio">
+  <div class="modal">
+    <p class="modal-eyebrow">Viagem</p>
+    <h2>Novo relatório de viagem</h2>
+    <form id="form-relatorio">
+      <div class="form-grid wide">
+        <div class="field"><label>Nome</label><input type="text" id="r-nome" placeholder="Viagem São Paulo — Set/2026" required /></div>
+        <div class="field"><label>Destino</label><input type="text" id="r-destino" /></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-relatorio">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

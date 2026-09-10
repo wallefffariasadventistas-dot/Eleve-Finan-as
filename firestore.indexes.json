@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "despesas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "statusReembolso", "order": "ASCENDING" },
+        { "fieldPath": "tipoDespesa", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "despesas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "statusReembolso", "order": "ASCENDING" },
+        { "fieldPath": "relatorioViagemId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "despesas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "relatorioViagemId", "order": "ASCENDING" },
+        { "fieldPath": "criadoEm", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

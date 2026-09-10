@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Sistema de uso pessoal: qualquer usuário autenticado no projeto (você) pode
+    // ler/escrever despesas e relatórios de viagem pelo dashboard web.
+    // Crie login apenas para você mesmo no Firebase Authentication.
+    match /despesas/{despesaId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /relatoriosViagem/{relatorioId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Estado de conversa do WhatsApp só é lido/escrito pelo backend (Admin SDK),
+    // nunca diretamente pelo navegador.
+    match /estadoConversa/{numero} {
+      allow read, write: if false;
+    }
+  }
+}

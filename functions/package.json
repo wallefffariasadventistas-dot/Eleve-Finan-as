@@ -1,0 +1,28 @@
+{
+  "name": "eleve-functions",
+  "version": "1.0.0",
+  "description": "Backend automatizado do Eleve: recebe despesas via WhatsApp, extrai dados com IA e sincroniza no Firebase.",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,storage",
+    "deploy": "npm run build && firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@google-cloud/speech": "^6.7.0",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0",
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^6.4.16",
+    "typescript": "^5.6.3"
+  },
+  "private": true
+}
