@@ -4,12 +4,12 @@
 // quem protege os dados de verdade são as Firestore/Storage Security Rules (firestore.rules,
 // storage.rules), não o sigilo destas chaves.
 export const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "COLE_AQUI.firebaseapp.com",
-  projectId: "COLE_AQUI",
-  storageBucket: "COLE_AQUI.appspot.com",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI",
+  apiKey: "AIzaSyB8IxZxdn_VO3HBMsimE4UtajZZ-KO-Hxo",
+  authDomain: "eleve-financeiro-novo.firebaseapp.com",
+  projectId: "eleve-financeiro-novo",
+  storageBucket: "eleve-financeiro-novo.firebasestorage.app",
+  messagingSenderId: "553632123558",
+  appId: "1:553632123558:web:2ae82d82375b70c2bc0267",
 };
 
 // ID da região onde as Cloud Functions foram publicadas (padrão: us-central1).
