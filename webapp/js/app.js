@@ -286,6 +286,7 @@ function renderRelatorios() {
         <div class="relatorio-body" id="body-${r.id}">
           <table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table>
           <div class="form-actions">
+            <button class="btn btn-sm btn-primary" data-reembolso-relatorio="${r.id}">Enviar para reembolso</button>
             <button class="btn btn-sm" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
             ${r.status === "aberto" ? `<button class="btn btn-sm" data-encerrar="${r.id}">Encerrar relatório</button>` : ""}
           </div>
@@ -310,6 +311,16 @@ function renderRelatorios() {
       if (relatorio) baixarPdfRelatorio(relatorio);
     });
   });
+  document.querySelectorAll("[data-reembolso-relatorio]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorioId = btn.dataset.reembolsoRelatorio;
+      const pendentes = state.despesas.filter((d) => d.relatorioViagemId === relatorioId && d.statusReembolso === "pendente");
+      if (pendentes.length === 0) { toast("Nenhuma despesa pendente de reembolso nesse relatório.", true); return; }
+      const canal = escolherCanal();
+      acionarReembolso(canal, { relatorioViagemId: relatorioId });
+    });
+  });
 }
 
 // ---------- REEMBOLSO ----------
@@ -321,13 +332,24 @@ document.querySelectorAll("#section-reembolso [data-canal]").forEach((btn) => {
 
 document.getElementById("btn-enviar-reembolso-departamento").addEventListener("click", () => {
   if (state.selecionadas.size === 0) { toast("Selecione ao menos uma despesa pendente.", true); return; }
-  const canal = confirm("OK = enviar por e-mail. Cancelar = enviar por WhatsApp.") ? "email" : "whatsapp";
-  acionarReembolso(canal, Array.from(state.selecionadas));
+  const canal = escolherCanal();
+  acionarReembolso(canal, { despesaIds: Array.from(state.selecionadas) });
 });
 
-async function acionarReembolso(canal, despesaIds) {
+document.getElementById("btn-enviar-tudo-departamento").addEventListener("click", () => {
+  const pendentes = state.despesas.filter((d) => d.tipoDespesa === "departamento" && d.statusReembolso === "pendente");
+  if (pendentes.length === 0) { toast("Nenhuma despesa de departamento pendente de reembolso.", true); return; }
+  const canal = escolherCanal();
+  acionarReembolso(canal, { tipoDespesa: "departamento" });
+});
+
+function escolherCanal() {
+  return confirm("OK = enviar por e-mail. Cancelar = enviar por WhatsApp.") ? "email" : "whatsapp";
+}
+
+async function acionarReembolso(canal, filtro = {}) {
   try {
-    const { data } = await enviarParaReembolso({ canal, despesaIds });
+    const { data } = await enviarParaReembolso({ canal, ...filtro });
     toast(`${data.enviado} despesa(s) enviada(s) para reembolso por ${canal}.`);
     state.selecionadas.clear();
   } catch (err) {
