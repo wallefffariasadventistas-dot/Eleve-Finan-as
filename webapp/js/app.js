@@ -19,7 +19,10 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const functions = getFunctions(app, FUNCTIONS_REGION);
 
-const state = { despesas: [], relatorios: [], selecionadas: new Set(), editandoDespesaId: null };
+const state = {
+  despesas: [], relatorios: [], selecionadas: new Set(), editandoDespesaId: null,
+  relatoriosExpandidos: new Set(),
+};
 
 const CATEGORIA_LABEL = {
   combustivel: "Combustível", hospedagem: "Hospedagem", alimentacao: "Alimentação",
@@ -29,6 +32,8 @@ const CATEGORIA_LABEL = {
 const STATUS_LABEL = {
   pendente: "Pendente", enviado: "Enviado", reembolsado: "Reembolsado", nao_reembolsavel: "—",
 };
+const STATUS_RELATORIO_LABEL = { aberto: "Aberto", enviado: "Enviado", pago: "Pago" };
+const STATUS_RELATORIO_BADGE = { aberto: "badge-pendente", enviado: "badge-enviado", pago: "badge-reembolsado" };
 
 function calcularReembolsavel(tipo) { return tipo === "viagem" || tipo === "departamento"; }
 
@@ -263,11 +268,12 @@ function abrirModalDespesaEdicao(d) {
   if (d.tipoDespesa === "viagem" && d.relatorioViagemId) {
     const select = document.getElementById("d-relatorio");
     if (!select.querySelector(`option[value="${d.relatorioViagemId}"]`)) {
-      // O relatório pode já estar encerrado (não listado por padrão) — adiciona pra não perder o vínculo ao editar.
+      // O relatório pode já não estar mais "aberto" (não listado por padrão) — adiciona
+      // pra não perder o vínculo ao editar, mostrando o status atual.
       const relatorio = state.relatorios.find((r) => r.id === d.relatorioViagemId);
       const opt = document.createElement("option");
       opt.value = d.relatorioViagemId;
-      opt.textContent = relatorio ? `${relatorio.nome} (encerrado)` : "Relatório";
+      opt.textContent = relatorio ? `${relatorio.nome} (${STATUS_RELATORIO_LABEL[relatorio.status]})` : "Relatório";
       select.appendChild(opt);
     }
     select.value = d.relatorioViagemId;
@@ -388,16 +394,26 @@ function renderRelatorios() {
       <div class="relatorio-card">
         <div class="relatorio-header" data-toggle="${r.id}">
           <div>
-            <div class="relatorio-nome">${r.nome} ${r.status === "encerrado" ? "🔒" : ""}</div>
+            <div class="relatorio-nome">
+              ${r.nome}
+              <span class="badge ${STATUS_RELATORIO_BADGE[r.status]}">${STATUS_RELATORIO_LABEL[r.status]}</span>
+            </div>
             <div class="relatorio-meta">${meta}</div>
           </div>
           <div class="relatorio-total">R$ ${total.toFixed(2)}</div>
         </div>
-        <div class="relatorio-body" id="body-${r.id}">
+        <div class="relatorio-body${state.relatoriosExpandidos.has(r.id) ? " open" : ""}" id="body-${r.id}">
+          <div class="rstatus-row">
+            <span class="rstatus-label">Status do relatório</span>
+            <div class="rstatus-toggle">
+              <button data-status-relatorio="${r.id}" data-status="aberto" class="${r.status === "aberto" ? "active-aberto" : ""}">Aberto</button>
+              <button data-status-relatorio="${r.id}" data-status="enviado" class="${r.status === "enviado" ? "active-enviado" : ""}">Enviado</button>
+              <button data-status-relatorio="${r.id}" data-status="pago" class="${r.status === "pago" ? "active-pago" : ""}">Pago</button>
+            </div>
+          </div>
           <table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table>
           <div class="form-actions">
             <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
-            ${r.status === "aberto" ? `<button class="btn btn-sm" data-encerrar="${r.id}">Encerrar relatório</button>` : ""}
             <button class="btn btn-sm btn-danger" data-excluir-relatorio="${r.id}">Excluir relatório</button>
           </div>
         </div>
@@ -405,13 +421,18 @@ function renderRelatorios() {
   }).join("") || `<p class="page-subtitle">Nenhum relatório de viagem ainda.</p>`;
 
   document.querySelectorAll("[data-toggle]").forEach((h) => {
-    h.addEventListener("click", () => document.getElementById(`body-${h.dataset.toggle}`).classList.toggle("open"));
+    h.addEventListener("click", () => {
+      const id = h.dataset.toggle;
+      state.relatoriosExpandidos.has(id) ? state.relatoriosExpandidos.delete(id) : state.relatoriosExpandidos.add(id);
+      document.getElementById(`body-${id}`).classList.toggle("open");
+    });
   });
-  document.querySelectorAll("[data-encerrar]").forEach((btn) => {
+  document.querySelectorAll("[data-status-relatorio]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      await updateDoc(doc(db, "relatoriosViagem", btn.dataset.encerrar), { status: "encerrado" });
-      toast("Relatório encerrado.");
+      const novoStatus = btn.dataset.status;
+      await updateDoc(doc(db, "relatoriosViagem", btn.dataset.statusRelatorio), { status: novoStatus });
+      toast(`Relatório marcado como "${STATUS_RELATORIO_LABEL[novoStatus]}".`);
     });
   });
   document.querySelectorAll("[data-pdf-relatorio]").forEach((btn) => {

@@ -6,7 +6,9 @@ export interface RelatorioViagem {
   destino: string | null;
   dataInicio: string | null;
   dataFim: string | null;
-  status: "aberto" | "encerrado";
+  // "aberto": aceita novos lançamentos. "enviado"/"pago": já mandado para reembolso ou
+  // já reembolsado — nenhum lançamento novo pode ser adicionado a partir daí.
+  status: "aberto" | "enviado" | "pago";
   criadoEm: FirebaseFirestore.FieldValue;
 }
 
@@ -25,8 +27,4 @@ export async function criarRelatorioViagem(nome: string, destino?: string): Prom
 export async function listarRelatoriosAbertos(): Promise<Array<RelatorioViagem & { id: string }>> {
   const snap = await collections.travelReports.where("status", "==", "aberto").get();
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as RelatorioViagem) }));
-}
-
-export async function encerrarRelatorioViagem(id: string): Promise<void> {
-  await collections.travelReports.doc(id).update({ status: "encerrado" });
 }
