@@ -238,7 +238,13 @@ function abrirModalDespesa(tipoPreset) {
   toggleCampoRelatorio();
   modalDespesa.classList.add("show");
 }
-document.getElementById("btn-nova-despesa-viagem").addEventListener("click", () => abrirModalDespesa("viagem"));
+document.getElementById("btn-nova-despesa-viagem").addEventListener("click", () => {
+  if (!state.relatorios.some((r) => r.status === "aberto")) {
+    toast("Crie um relatório de viagem antes de lançar uma despesa.", true);
+    return;
+  }
+  abrirModalDespesa("viagem");
+});
 document.getElementById("btn-nova-despesa-departamento").addEventListener("click", () => abrirModalDespesa("departamento"));
 document.getElementById("btn-nova-despesa-pessoal").addEventListener("click", () => abrirModalDespesa("pessoal"));
 
@@ -369,6 +375,11 @@ function formatarPeriodo(r) {
 }
 
 function renderRelatorios() {
+  const temRelatorioAberto = state.relatorios.some((r) => r.status === "aberto");
+  const btnNovaDespesaViagem = document.getElementById("btn-nova-despesa-viagem");
+  btnNovaDespesaViagem.disabled = !temRelatorioAberto;
+  btnNovaDespesaViagem.title = temRelatorioAberto ? "" : "Crie um relatório de viagem antes de lançar uma despesa";
+
   document.getElementById("lista-relatorios").innerHTML = state.relatorios.map((r) => {
     const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === r.id);
     const total = despesasDoRelatorio.reduce((s, d) => s + (d.valor ?? 0), 0);
@@ -385,8 +396,7 @@ function renderRelatorios() {
         <div class="relatorio-body" id="body-${r.id}">
           <table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table>
           <div class="form-actions">
-            <button class="btn btn-sm btn-primary" data-reembolso-relatorio="${r.id}">Enviar para reembolso</button>
-            <button class="btn btn-sm" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
+            <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
             ${r.status === "aberto" ? `<button class="btn btn-sm" data-encerrar="${r.id}">Encerrar relatório</button>` : ""}
             <button class="btn btn-sm btn-danger" data-excluir-relatorio="${r.id}">Excluir relatório</button>
           </div>
@@ -409,16 +419,6 @@ function renderRelatorios() {
       e.stopPropagation();
       const relatorio = state.relatorios.find((r) => r.id === btn.dataset.pdfRelatorio);
       if (relatorio) baixarPdfRelatorio(relatorio);
-    });
-  });
-  document.querySelectorAll("[data-reembolso-relatorio]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const relatorioId = btn.dataset.reembolsoRelatorio;
-      const pendentes = state.despesas.filter((d) => d.relatorioViagemId === relatorioId && d.statusReembolso === "pendente");
-      if (pendentes.length === 0) { toast("Nenhuma despesa pendente de reembolso nesse relatório.", true); return; }
-      const canal = escolherCanal();
-      acionarReembolso(canal, { relatorioViagemId: relatorioId });
     });
   });
   document.querySelectorAll("[data-excluir-relatorio]").forEach((btn) => {

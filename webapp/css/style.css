@@ -161,6 +161,7 @@ textarea { min-height: 64px; resize: vertical; }
   transition: border-color .15s, color .15s;
 }
 .btn:hover { border-color: var(--border-accent); color: var(--text); }
+.btn:disabled, .btn:disabled:hover { opacity: 0.4; cursor: not-allowed; border-color: var(--border-strong); color: var(--text3); }
 .btn-primary { background: var(--gradient-brand); color: #06110D; border: none; font-weight: 700; }
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-sm { padding: 6px 12px; font-size: 12.5px; }
