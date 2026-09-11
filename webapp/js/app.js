@@ -130,12 +130,12 @@ function renderDashboard() {
 
 function linhaDespesaSimples(d) {
   return `<tr>
-    <td>${d.data ?? "—"}</td>
-    <td>${d.descricao ?? ""}</td>
-    <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
-    <td>${d.tipoDespesa ?? "—"}</td>
-    <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
-    <td>${botoesAcaoDespesa(d)}</td>
+    <td data-label="Data">${d.data ?? "—"}</td>
+    <td data-label="Descrição">${d.descricao ?? ""}</td>
+    <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
+    <td data-label="Tipo">${d.tipoDespesa ?? "—"}</td>
+    <td data-label="Valor" class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+    <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
   </tr>`;
 }
 
@@ -193,14 +193,14 @@ function renderDepartamento() {
 
   document.querySelector("#tabela-departamento tbody").innerHTML = filtradas.map((d) => `
     <tr>
-      <td><input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} /></td>
-      <td>${d.data ?? "—"}</td>
-      <td>${d.descricao ?? ""}</td>
-      <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
-      <td>${d.origem ?? ""}</td>
-      <td><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
-      <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
-      <td>${botoesAcaoDespesa(d)}</td>
+      <td data-label="Selecionar"><input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} /></td>
+      <td data-label="Data">${d.data ?? "—"}</td>
+      <td data-label="Descrição">${d.descricao ?? ""}</td>
+      <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
+      <td data-label="Origem">${d.origem ?? ""}</td>
+      <td data-label="Status"><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
+      <td data-label="Valor" class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="8">Nenhuma despesa de departamento lançada ainda.</td></tr>`;
 
@@ -218,12 +218,12 @@ function renderPessoal() {
 
   document.querySelector("#tabela-pessoal tbody").innerHTML = filtradas.map((d) => `
     <tr>
-      <td>${d.data ?? "—"}</td>
-      <td>${d.descricao ?? ""}</td>
-      <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
-      <td>${d.origem ?? ""}</td>
-      <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
-      <td>${botoesAcaoDespesa(d)}</td>
+      <td data-label="Data">${d.data ?? "—"}</td>
+      <td data-label="Descrição">${d.descricao ?? ""}</td>
+      <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
+      <td data-label="Origem">${d.origem ?? ""}</td>
+      <td data-label="Valor" class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="6">Nenhuma despesa pessoal lançada ainda.</td></tr>`;
 
@@ -299,6 +299,12 @@ function popularSelectRelatorios() {
 
 document.getElementById("form-despesa").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const btnSalvar = document.getElementById("btn-salvar-despesa");
+  if (btnSalvar.disabled) return; // já está salvando — ignora cliques repetidos
+  const textoOriginal = btnSalvar.textContent;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = "Salvando...";
+
   const tipoDespesa = document.getElementById("d-tipo").value;
   const reembolsavel = calcularReembolsavel(tipoDespesa);
   const editandoId = state.editandoDespesaId;
@@ -349,6 +355,9 @@ document.getElementById("form-despesa").addEventListener("submit", async (e) => 
     toast(editandoId ? "Despesa atualizada com sucesso." : "Despesa lançada com sucesso.");
   } catch (err) {
     toast("Erro ao salvar despesa: " + err.message, true);
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = textoOriginal;
   }
 });
 
@@ -361,15 +370,26 @@ document.getElementById("btn-novo-relatorio").addEventListener("click", () => {
 document.getElementById("btn-cancelar-relatorio").addEventListener("click", () => modalRelatorio.classList.remove("show"));
 document.getElementById("form-relatorio").addEventListener("submit", async (e) => {
   e.preventDefault();
-  await addDoc(collection(db, "relatoriosViagem"), {
-    nome: document.getElementById("r-nome").value,
-    destino: document.getElementById("r-destino").value || null,
-    dataInicio: document.getElementById("r-data-inicio").value || null,
-    dataFim: document.getElementById("r-data-fim").value || null,
-    status: "aberto", criadoEm: serverTimestamp(),
-  });
-  modalRelatorio.classList.remove("show");
-  toast("Relatório de viagem criado.");
+  const btnSalvar = document.getElementById("btn-salvar-relatorio");
+  if (btnSalvar.disabled) return;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = "Criando...";
+  try {
+    await addDoc(collection(db, "relatoriosViagem"), {
+      nome: document.getElementById("r-nome").value,
+      destino: document.getElementById("r-destino").value || null,
+      dataInicio: document.getElementById("r-data-inicio").value || null,
+      dataFim: document.getElementById("r-data-fim").value || null,
+      status: "aberto", criadoEm: serverTimestamp(),
+    });
+    modalRelatorio.classList.remove("show");
+    toast("Relatório de viagem criado.");
+  } catch (err) {
+    toast("Erro ao criar relatório: " + err.message, true);
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = "Criar";
+  }
 });
 
 // ---------- RELATÓRIOS DE VIAGEM ----------
