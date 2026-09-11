@@ -75,7 +75,8 @@ function startListeners() {
   onSnapshot(query(collection(db, "despesas"), orderBy("criadoEm", "desc")), (snap) => {
     state.despesas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderDashboard();
-    renderDespesas();
+    renderDepartamento();
+    renderPessoal();
     renderRelatorios();
   });
   onSnapshot(collection(db, "relatoriosViagem"), (snap) => {
@@ -121,33 +122,8 @@ function linhaDespesaSimples(d) {
   </tr>`;
 }
 
-// ---------- DESPESAS ----------
-function renderDespesas() {
-  const tipo = document.getElementById("filtro-tipo").value;
-  const status = document.getElementById("filtro-status").value;
-  const filtradas = state.despesas.filter((d) =>
-    (!tipo || d.tipoDespesa === tipo) && (!status || d.statusReembolso === status)
-  );
-
-  document.querySelector("#tabela-despesas tbody").innerHTML = filtradas.map((d) => `
-    <tr>
-      <td><input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} /></td>
-      <td>${d.data ?? "—"}</td>
-      <td>${d.descricao ?? ""}</td>
-      <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
-      <td>${d.tipoDespesa ?? "—"}</td>
-      <td>${d.origem ?? ""}</td>
-      <td><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
-      <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
-      <td>${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}</td>
-    </tr>
-  `).join("") || `<tr><td colspan="9">Nenhuma despesa encontrada.</td></tr>`;
-
-  document.querySelectorAll(".chk-despesa").forEach((chk) => {
-    chk.addEventListener("change", () => {
-      chk.checked ? state.selecionadas.add(chk.dataset.id) : state.selecionadas.delete(chk.dataset.id);
-    });
-  });
+// ---------- DESPESAS DE DEPARTAMENTO ----------
+function anexarVerRecibo() {
   document.querySelectorAll("[data-ver-comprovante]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const d = state.despesas.find((x) => x.id === btn.dataset.verComprovante);
@@ -157,17 +133,66 @@ function renderDespesas() {
   });
 }
 
-document.getElementById("filtro-tipo").addEventListener("change", renderDespesas);
-document.getElementById("filtro-status").addEventListener("change", renderDespesas);
+function renderDepartamento() {
+  const status = document.getElementById("filtro-status-departamento").value;
+  const filtradas = state.despesas.filter((d) =>
+    d.tipoDespesa === "departamento" && (!status || d.statusReembolso === status)
+  );
+
+  document.querySelector("#tabela-departamento tbody").innerHTML = filtradas.map((d) => `
+    <tr>
+      <td><input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} /></td>
+      <td>${d.data ?? "—"}</td>
+      <td>${d.descricao ?? ""}</td>
+      <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
+      <td>${d.origem ?? ""}</td>
+      <td><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
+      <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td>${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="8">Nenhuma despesa de departamento lançada ainda.</td></tr>`;
+
+  document.querySelectorAll("#tabela-departamento .chk-despesa").forEach((chk) => {
+    chk.addEventListener("change", () => {
+      chk.checked ? state.selecionadas.add(chk.dataset.id) : state.selecionadas.delete(chk.dataset.id);
+    });
+  });
+  anexarVerRecibo();
+}
+document.getElementById("filtro-status-departamento").addEventListener("change", renderDepartamento);
+
+// ---------- DESPESAS PESSOAIS ----------
+function renderPessoal() {
+  const filtradas = state.despesas.filter((d) => d.tipoDespesa === "pessoal");
+
+  document.querySelector("#tabela-pessoal tbody").innerHTML = filtradas.map((d) => `
+    <tr>
+      <td>${d.data ?? "—"}</td>
+      <td>${d.descricao ?? ""}</td>
+      <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
+      <td>${d.origem ?? ""}</td>
+      <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td>${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="6">Nenhuma despesa pessoal lançada ainda.</td></tr>`;
+
+  anexarVerRecibo();
+}
 
 // ---------- MODAL DESPESA (lançamento manual) ----------
 const modalDespesa = document.getElementById("modal-despesa");
-document.getElementById("btn-nova-despesa").addEventListener("click", () => {
+
+function abrirModalDespesa(tipoPreset) {
   document.getElementById("form-despesa").reset();
   document.getElementById("d-data").value = new Date().toISOString().slice(0, 10);
+  if (tipoPreset) document.getElementById("d-tipo").value = tipoPreset;
   toggleCampoRelatorio();
   modalDespesa.classList.add("show");
-});
+}
+document.getElementById("btn-nova-despesa-viagem").addEventListener("click", () => abrirModalDespesa("viagem"));
+document.getElementById("btn-nova-despesa-departamento").addEventListener("click", () => abrirModalDespesa("departamento"));
+document.getElementById("btn-nova-despesa-pessoal").addEventListener("click", () => abrirModalDespesa("pessoal"));
+
 document.getElementById("btn-cancelar-despesa").addEventListener("click", () => modalDespesa.classList.remove("show"));
 document.getElementById("d-tipo").addEventListener("change", toggleCampoRelatorio);
 
@@ -294,7 +319,7 @@ document.querySelectorAll("#section-reembolso [data-canal]").forEach((btn) => {
   btn.addEventListener("click", () => acionarReembolso(btn.dataset.canal));
 });
 
-document.getElementById("btn-enviar-reembolso").addEventListener("click", () => {
+document.getElementById("btn-enviar-reembolso-departamento").addEventListener("click", () => {
   if (state.selecionadas.size === 0) { toast("Selecione ao menos uma despesa pendente.", true); return; }
   const canal = confirm("OK = enviar por e-mail. Cancelar = enviar por WhatsApp.") ? "email" : "whatsapp";
   acionarReembolso(canal, Array.from(state.selecionadas));
@@ -370,17 +395,21 @@ function baixarPdfRelatorio(relatorio) {
   doc.save(nomeArquivo(relatorio.nome));
 }
 
-document.getElementById("btn-pdf-despesas").addEventListener("click", () => {
-  const tipo = document.getElementById("filtro-tipo").value;
-  const status = document.getElementById("filtro-status").value;
-  const filtradas = state.despesas.filter((d) =>
-    (!tipo || d.tipoDespesa === tipo) && (!status || d.statusReembolso === status)
-  );
-  if (filtradas.length === 0) { toast("Nenhuma despesa para exportar com esse filtro.", true); return; }
-  const subtitulo = [tipo, status ? STATUS_LABEL[status] : ""].filter(Boolean).join(" · ") || "Todas as despesas";
-  const doc = novoPdf("Despesas", subtitulo);
+document.getElementById("btn-pdf-departamento").addEventListener("click", () => {
+  const status = document.getElementById("filtro-status-departamento").value;
+  const filtradas = state.despesas.filter((d) => d.tipoDespesa === "departamento" && (!status || d.statusReembolso === status));
+  if (filtradas.length === 0) { toast("Nenhuma despesa de departamento para exportar.", true); return; }
+  const doc = novoPdf("Despesas de Departamento", status ? STATUS_LABEL[status] : "Todos os status");
   tabelaDespesasPdf(doc, filtradas);
-  doc.save(nomeArquivo("eleve-despesas"));
+  doc.save(nomeArquivo("eleve-despesas-departamento"));
+});
+
+document.getElementById("btn-pdf-pessoal").addEventListener("click", () => {
+  const filtradas = state.despesas.filter((d) => d.tipoDespesa === "pessoal");
+  if (filtradas.length === 0) { toast("Nenhuma despesa pessoal para exportar.", true); return; }
+  const doc = novoPdf("Despesas Pessoais", `${filtradas.length} lançamento(s)`);
+  tabelaDespesasPdf(doc, filtradas);
+  doc.save(nomeArquivo("eleve-despesas-pessoais"));
 });
 
 document.getElementById("btn-pdf-extrato").addEventListener("click", () => {

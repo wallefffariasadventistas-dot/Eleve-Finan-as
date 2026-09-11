@@ -44,13 +44,17 @@
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Dashboard
       </button>
-      <button class="nav-item" data-section="despesas">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        Despesas
-      </button>
       <button class="nav-item" data-section="viagens">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Relatórios de Viagem
+      </button>
+      <button class="nav-item" data-section="departamento">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Despesas de Departamento
+      </button>
+      <button class="nav-item" data-section="pessoal">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+        Despesas Pessoais
       </button>
       <button class="nav-item" data-section="reembolso">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -76,37 +80,44 @@
       </div>
     </section>
 
-    <section id="section-despesas" class="section">
+    <section id="section-viagens" class="section">
       <header class="page-header">
         <div>
-          <p class="page-eyebrow">Lançamentos</p>
-          <h2 class="page-title">Despesas</h2>
+          <p class="page-eyebrow">Viagens</p>
+          <h2 class="page-title">Relatórios de Viagem</h2>
         </div>
-        <button class="btn btn-primary" id="btn-nova-despesa">+ Lançar despesa</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" id="btn-nova-despesa-viagem">+ Lançar despesa</button>
+          <button class="btn btn-primary" id="btn-novo-relatorio">+ Novo relatório</button>
+        </div>
+      </header>
+      <div id="lista-relatorios"></div>
+    </section>
+
+    <section id="section-departamento" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Lançamentos · Reembolsável</p>
+          <h2 class="page-title">Despesas de Departamento</h2>
+        </div>
+        <button class="btn btn-primary" id="btn-nova-despesa-departamento">+ Lançar despesa</button>
       </header>
       <div class="filter-bar">
-        <select id="filtro-tipo">
-          <option value="">Todos os tipos</option>
-          <option value="viagem">Viagem</option>
-          <option value="departamento">Departamento</option>
-          <option value="pessoal">Pessoal</option>
-        </select>
-        <select id="filtro-status">
+        <select id="filtro-status-departamento">
           <option value="">Todos os status</option>
           <option value="pendente">Pendente de reembolso</option>
           <option value="enviado">Enviado para reembolso</option>
           <option value="reembolsado">Reembolsado</option>
-          <option value="nao_reembolsavel">Não reembolsável</option>
         </select>
-        <button class="btn btn-sm" id="btn-enviar-reembolso">Enviar selecionadas para reembolso</button>
-        <button class="btn btn-sm" id="btn-pdf-despesas">Baixar PDF (filtro atual)</button>
+        <button class="btn btn-sm" id="btn-enviar-reembolso-departamento">Enviar selecionadas para reembolso</button>
+        <button class="btn btn-sm" id="btn-pdf-departamento">Baixar PDF</button>
       </div>
       <div class="card">
         <div class="table-wrap">
-          <table id="tabela-despesas">
+          <table id="tabela-departamento">
             <thead>
               <tr>
-                <th></th><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th>
+                <th></th><th>Data</th><th>Descrição</th><th>Categoria</th>
                 <th>Origem</th><th>Status</th><th>Valor</th><th></th>
               </tr>
             </thead>
@@ -116,15 +127,27 @@
       </div>
     </section>
 
-    <section id="section-viagens" class="section">
+    <section id="section-pessoal" class="section">
       <header class="page-header">
         <div>
-          <p class="page-eyebrow">Viagens</p>
-          <h2 class="page-title">Relatórios de Viagem</h2>
+          <p class="page-eyebrow">Lançamentos · Não reembolsável</p>
+          <h2 class="page-title">Despesas Pessoais</h2>
         </div>
-        <button class="btn btn-primary" id="btn-novo-relatorio">+ Novo relatório</button>
+        <button class="btn btn-primary" id="btn-nova-despesa-pessoal">+ Lançar despesa</button>
       </header>
-      <div id="lista-relatorios"></div>
+      <div class="filter-bar">
+        <button class="btn btn-sm" id="btn-pdf-pessoal">Baixar PDF</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table id="tabela-pessoal">
+            <thead>
+              <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Origem</th><th>Valor</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section id="section-reembolso" class="section">
