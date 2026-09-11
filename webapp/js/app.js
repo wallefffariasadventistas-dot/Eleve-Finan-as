@@ -39,6 +39,17 @@ function toast(msg, isError = false) {
   setTimeout(() => (el.className = "toast"), 3200);
 }
 
+// Qualquer erro não tratado (ex: biblioteca de PDF que não carregou, bug de código)
+// aparece como um toast visível, em vez de falhar em silêncio sem nenhum sinal na tela.
+window.addEventListener("error", (e) => {
+  console.error("Erro não tratado:", e.error ?? e.message);
+  toast("Erro inesperado: " + (e.error?.message ?? e.message), true);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Promise rejeitada:", e.reason);
+  toast("Erro inesperado: " + (e.reason?.message ?? String(e.reason)), true);
+});
+
 // ---------- AUTH ----------
 onAuthStateChanged(auth, (user) => {
   document.getElementById("login-screen").classList.toggle("show", !user);
@@ -359,6 +370,9 @@ async function acionarReembolso(canal, filtro = {}) {
 
 // ---------- PDF ----------
 function novoPdf(titulo, subtitulo) {
+  if (!window.jspdf) {
+    throw new Error("Biblioteca de PDF não carregou. Verifique sua conexão e recarregue a página.");
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFont("helvetica", "bold");
