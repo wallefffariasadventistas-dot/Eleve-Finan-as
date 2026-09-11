@@ -3,7 +3,7 @@ import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
-  getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, serverTimestamp,
+  getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytes, getDownloadURL,
@@ -19,7 +19,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const functions = getFunctions(app, FUNCTIONS_REGION);
 
-const state = { despesas: [], relatorios: [], selecionadas: new Set() };
+const state = { despesas: [], relatorios: [], selecionadas: new Set(), editandoDespesaId: null };
 
 const CATEGORIA_LABEL = {
   combustivel: "Combustível", hospedagem: "Hospedagem", alimentacao: "Alimentação",
@@ -120,7 +120,8 @@ function renderDashboard() {
 
   const recentes = state.despesas.slice(0, 8);
   document.querySelector("#dashboard-recent tbody").innerHTML = recentes.map(linhaDespesaSimples).join("") ||
-    `<tr><td colspan="5">Nenhum lançamento ainda.</td></tr>`;
+    `<tr><td colspan="6">Nenhum lançamento ainda.</td></tr>`;
+  anexarAcoesDespesa();
 }
 
 function linhaDespesaSimples(d) {
@@ -130,16 +131,45 @@ function linhaDespesaSimples(d) {
     <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
     <td>${d.tipoDespesa ?? "—"}</td>
     <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+    <td>${botoesAcaoDespesa(d)}</td>
   </tr>`;
 }
 
-// ---------- DESPESAS DE DEPARTAMENTO ----------
-function anexarVerRecibo() {
+// ---------- AÇÕES COMPARTILHADAS (ver recibo / editar / excluir) ----------
+function botoesAcaoDespesa(d) {
+  return `<div class="row-actions">
+    ${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}
+    <button class="btn btn-sm" data-editar-despesa="${d.id}">Editar</button>
+    <button class="btn btn-sm btn-danger" data-excluir-despesa="${d.id}">Excluir</button>
+  </div>`;
+}
+
+function anexarAcoesDespesa() {
   document.querySelectorAll("[data-ver-comprovante]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
       const d = state.despesas.find((x) => x.id === btn.dataset.verComprovante);
       const url = await getDownloadURL(ref(storage, d.comprovanteStoragePath));
       window.open(url, "_blank");
+    });
+  });
+  document.querySelectorAll("[data-editar-despesa]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const d = state.despesas.find((x) => x.id === btn.dataset.editarDespesa);
+      if (d) abrirModalDespesaEdicao(d);
+    });
+  });
+  document.querySelectorAll("[data-excluir-despesa]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Excluir esta despesa? Essa ação não pode ser desfeita.")) return;
+      try {
+        await deleteDoc(doc(db, "despesas", btn.dataset.excluirDespesa));
+        toast("Despesa excluída.");
+      } catch (err) {
+        toast("Erro ao excluir despesa: " + err.message, true);
+      }
     });
   });
 }
@@ -159,7 +189,7 @@ function renderDepartamento() {
       <td>${d.origem ?? ""}</td>
       <td><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
       <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
-      <td>${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}</td>
+      <td>${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="8">Nenhuma despesa de departamento lançada ainda.</td></tr>`;
 
@@ -168,7 +198,7 @@ function renderDepartamento() {
       chk.checked ? state.selecionadas.add(chk.dataset.id) : state.selecionadas.delete(chk.dataset.id);
     });
   });
-  anexarVerRecibo();
+  anexarAcoesDespesa();
 }
 document.getElementById("filtro-status-departamento").addEventListener("change", renderDepartamento);
 
@@ -183,18 +213,22 @@ function renderPessoal() {
       <td>${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
       <td>${d.origem ?? ""}</td>
       <td class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
-      <td>${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}</td>
+      <td>${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="6">Nenhuma despesa pessoal lançada ainda.</td></tr>`;
 
-  anexarVerRecibo();
+  anexarAcoesDespesa();
 }
 
 // ---------- MODAL DESPESA (lançamento manual) ----------
 const modalDespesa = document.getElementById("modal-despesa");
 
 function abrirModalDespesa(tipoPreset) {
+  state.editandoDespesaId = null;
   document.getElementById("form-despesa").reset();
+  document.getElementById("modal-despesa-eyebrow").textContent = "Lançamento manual";
+  document.getElementById("modal-despesa-titulo").textContent = "Nova despesa";
+  document.getElementById("btn-salvar-despesa").textContent = "Salvar";
   document.getElementById("d-data").value = new Date().toISOString().slice(0, 10);
   if (tipoPreset) document.getElementById("d-tipo").value = tipoPreset;
   toggleCampoRelatorio();
@@ -204,7 +238,37 @@ document.getElementById("btn-nova-despesa-viagem").addEventListener("click", () 
 document.getElementById("btn-nova-despesa-departamento").addEventListener("click", () => abrirModalDespesa("departamento"));
 document.getElementById("btn-nova-despesa-pessoal").addEventListener("click", () => abrirModalDespesa("pessoal"));
 
-document.getElementById("btn-cancelar-despesa").addEventListener("click", () => modalDespesa.classList.remove("show"));
+function abrirModalDespesaEdicao(d) {
+  state.editandoDespesaId = d.id;
+  document.getElementById("form-despesa").reset();
+  document.getElementById("modal-despesa-eyebrow").textContent = "Editar lançamento";
+  document.getElementById("modal-despesa-titulo").textContent = "Editar despesa";
+  document.getElementById("btn-salvar-despesa").textContent = "Salvar alterações";
+  document.getElementById("d-data").value = d.data ?? "";
+  document.getElementById("d-valor").value = d.valor ?? "";
+  document.getElementById("d-categoria").value = d.categoria ?? "outros";
+  document.getElementById("d-tipo").value = d.tipoDespesa ?? "pessoal";
+  document.getElementById("d-descricao").value = d.descricao ?? "";
+  toggleCampoRelatorio();
+  if (d.tipoDespesa === "viagem" && d.relatorioViagemId) {
+    const select = document.getElementById("d-relatorio");
+    if (!select.querySelector(`option[value="${d.relatorioViagemId}"]`)) {
+      // O relatório pode já estar encerrado (não listado por padrão) — adiciona pra não perder o vínculo ao editar.
+      const relatorio = state.relatorios.find((r) => r.id === d.relatorioViagemId);
+      const opt = document.createElement("option");
+      opt.value = d.relatorioViagemId;
+      opt.textContent = relatorio ? `${relatorio.nome} (encerrado)` : "Relatório";
+      select.appendChild(opt);
+    }
+    select.value = d.relatorioViagemId;
+  }
+  modalDespesa.classList.add("show");
+}
+
+document.getElementById("btn-cancelar-despesa").addEventListener("click", () => {
+  state.editandoDespesaId = null;
+  modalDespesa.classList.remove("show");
+});
 document.getElementById("d-tipo").addEventListener("change", toggleCampoRelatorio);
 
 function toggleCampoRelatorio() {
@@ -221,32 +285,52 @@ document.getElementById("form-despesa").addEventListener("submit", async (e) => 
   e.preventDefault();
   const tipoDespesa = document.getElementById("d-tipo").value;
   const reembolsavel = calcularReembolsavel(tipoDespesa);
+  const editandoId = state.editandoDespesaId;
+  const despesaAtual = editandoId ? state.despesas.find((d) => d.id === editandoId) : null;
+
+  let statusReembolso;
+  if (!reembolsavel) statusReembolso = "nao_reembolsavel";
+  else if (despesaAtual && despesaAtual.reembolsavel) statusReembolso = despesaAtual.statusReembolso;
+  else statusReembolso = "pendente";
+
   const payload = {
     data: document.getElementById("d-data").value,
     valor: Number(document.getElementById("d-valor").value),
     categoria: document.getElementById("d-categoria").value,
     tipoDespesa,
     descricao: document.getElementById("d-descricao").value,
-    estabelecimento: null,
-    finalizado: true,
     reembolsavel,
-    statusReembolso: reembolsavel ? "pendente" : "nao_reembolsavel",
+    statusReembolso,
     relatorioViagemId: tipoDespesa === "viagem" ? (document.getElementById("d-relatorio").value || null) : null,
-    origem: "manual",
-    comprovanteStoragePath: null,
-    criadoEm: serverTimestamp(),
     atualizadoEm: serverTimestamp(),
   };
+
   try {
-    const docRef = await addDoc(collection(db, "despesas"), payload);
+    let despesaId = editandoId;
+    if (editandoId) {
+      await updateDoc(doc(db, "despesas", editandoId), payload);
+    } else {
+      const docRef = await addDoc(collection(db, "despesas"), {
+        ...payload,
+        estabelecimento: null,
+        finalizado: true,
+        origem: "manual",
+        comprovanteStoragePath: null,
+        criadoEm: serverTimestamp(),
+      });
+      despesaId = docRef.id;
+    }
+
     const arquivo = document.getElementById("d-comprovante").files[0];
     if (arquivo) {
-      const path = `recibos/${docRef.id}/original.${arquivo.name.split(".").pop()}`;
+      const path = `recibos/${despesaId}/original.${arquivo.name.split(".").pop()}`;
       await uploadBytes(ref(storage, path), arquivo);
-      await updateDoc(doc(db, "despesas", docRef.id), { comprovanteStoragePath: path });
+      await updateDoc(doc(db, "despesas", despesaId), { comprovanteStoragePath: path });
     }
+
+    state.editandoDespesaId = null;
     modalDespesa.classList.remove("show");
-    toast("Despesa lançada com sucesso.");
+    toast(editandoId ? "Despesa atualizada com sucesso." : "Despesa lançada com sucesso.");
   } catch (err) {
     toast("Erro ao salvar despesa: " + err.message, true);
   }
@@ -300,6 +384,7 @@ function renderRelatorios() {
             <button class="btn btn-sm btn-primary" data-reembolso-relatorio="${r.id}">Enviar para reembolso</button>
             <button class="btn btn-sm" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
             ${r.status === "aberto" ? `<button class="btn btn-sm" data-encerrar="${r.id}">Encerrar relatório</button>` : ""}
+            <button class="btn btn-sm btn-danger" data-excluir-relatorio="${r.id}">Excluir relatório</button>
           </div>
         </div>
       </div>`;
@@ -332,6 +417,25 @@ function renderRelatorios() {
       acionarReembolso(canal, { relatorioViagemId: relatorioId });
     });
   });
+  document.querySelectorAll("[data-excluir-relatorio]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const relatorioId = btn.dataset.excluirRelatorio;
+      const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === relatorioId);
+      const aviso = despesasDoRelatorio.length > 0
+        ? `Excluir este relatório também vai excluir as ${despesasDoRelatorio.length} despesa(s) lançadas nele. Essa ação não pode ser desfeita. Continuar?`
+        : "Excluir este relatório de viagem? Essa ação não pode ser desfeita.";
+      if (!confirm(aviso)) return;
+      try {
+        await Promise.all(despesasDoRelatorio.map((d) => deleteDoc(doc(db, "despesas", d.id))));
+        await deleteDoc(doc(db, "relatoriosViagem", relatorioId));
+        toast("Relatório de viagem excluído.");
+      } catch (err) {
+        toast("Erro ao excluir relatório: " + err.message, true);
+      }
+    });
+  });
+  anexarAcoesDespesa();
 }
 
 // ---------- REEMBOLSO ----------

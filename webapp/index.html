@@ -6,7 +6,7 @@
 <title>Eleve — Sistema Financeiro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=4" />
+<link rel="stylesheet" href="css/style.css?v=5" />
 </head>
 <body>
 
@@ -174,8 +174,8 @@
 
 <div class="modal-overlay" id="modal-despesa">
   <div class="modal">
-    <p class="modal-eyebrow">Lançamento manual</p>
-    <h2>Nova despesa</h2>
+    <p class="modal-eyebrow" id="modal-despesa-eyebrow">Lançamento manual</p>
+    <h2 id="modal-despesa-titulo">Nova despesa</h2>
     <form id="form-despesa">
       <div class="form-grid">
         <div class="field"><label>Data</label><input type="date" id="d-data" required /></div>
@@ -212,7 +212,7 @@
       </div>
       <div class="form-actions">
         <button type="button" class="btn" id="btn-cancelar-despesa">Cancelar</button>
-        <button type="submit" class="btn btn-primary">Salvar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-despesa">Salvar</button>
       </div>
     </form>
   </div>
@@ -243,6 +243,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=4"></script>
+<script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>
