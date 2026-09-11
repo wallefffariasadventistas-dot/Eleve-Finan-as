@@ -67,6 +67,7 @@
           <p class="page-eyebrow">Visão geral</p>
           <h2 class="page-title">Dashboard</h2>
         </div>
+        <button class="btn" id="btn-pdf-extrato">Baixar extrato em PDF</button>
       </header>
       <div id="dashboard-metrics" class="metrics"></div>
       <div class="card">
@@ -98,6 +99,7 @@
           <option value="nao_reembolsavel">Não reembolsável</option>
         </select>
         <button class="btn btn-sm" id="btn-enviar-reembolso">Enviar selecionadas para reembolso</button>
+        <button class="btn btn-sm" id="btn-pdf-despesas">Baixar PDF (filtro atual)</button>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -138,6 +140,7 @@
           <div class="form-actions" style="justify-content:flex-start; margin-top: 18px;">
             <button class="btn btn-primary" data-canal="email">Enviar tudo por e-mail</button>
             <button class="btn" data-canal="whatsapp">Enviar tudo por WhatsApp</button>
+            <button class="btn" id="btn-pdf-reembolso">Baixar PDF do pacote</button>
           </div>
         </div>
       </div>
@@ -198,7 +201,11 @@
     <form id="form-relatorio">
       <div class="form-grid wide">
         <div class="field"><label>Nome</label><input type="text" id="r-nome" placeholder="Viagem São Paulo — Set/2026" required /></div>
-        <div class="field"><label>Destino</label><input type="text" id="r-destino" /></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Cidade destino</label><input type="text" id="r-destino" /></div>
+        <div class="field"><label>Data de início</label><input type="date" id="r-data-inicio" /></div>
+        <div class="field"><label>Data final</label><input type="date" id="r-data-fim" /></div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn" id="btn-cancelar-relatorio">Cancelar</button>
@@ -210,6 +217,8 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

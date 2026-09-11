@@ -228,29 +228,42 @@ document.getElementById("form-relatorio").addEventListener("submit", async (e) =
   await addDoc(collection(db, "relatoriosViagem"), {
     nome: document.getElementById("r-nome").value,
     destino: document.getElementById("r-destino").value || null,
-    dataInicio: null, dataFim: null, status: "aberto", criadoEm: serverTimestamp(),
+    dataInicio: document.getElementById("r-data-inicio").value || null,
+    dataFim: document.getElementById("r-data-fim").value || null,
+    status: "aberto", criadoEm: serverTimestamp(),
   });
   modalRelatorio.classList.remove("show");
   toast("Relatório de viagem criado.");
 });
 
 // ---------- RELATÓRIOS DE VIAGEM ----------
+function formatarPeriodo(r) {
+  if (r.dataInicio && r.dataFim) return `${r.dataInicio} a ${r.dataFim}`;
+  if (r.dataInicio) return `a partir de ${r.dataInicio}`;
+  if (r.dataFim) return `até ${r.dataFim}`;
+  return "";
+}
+
 function renderRelatorios() {
   document.getElementById("lista-relatorios").innerHTML = state.relatorios.map((r) => {
     const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === r.id);
     const total = despesasDoRelatorio.reduce((s, d) => s + (d.valor ?? 0), 0);
+    const meta = [r.destino, formatarPeriodo(r), `${despesasDoRelatorio.length} despesa(s)`].filter(Boolean).join(" · ");
     return `
       <div class="relatorio-card">
         <div class="relatorio-header" data-toggle="${r.id}">
           <div>
             <div class="relatorio-nome">${r.nome} ${r.status === "encerrado" ? "🔒" : ""}</div>
-            <div class="relatorio-meta">${r.destino ?? ""} · ${despesasDoRelatorio.length} despesa(s)</div>
+            <div class="relatorio-meta">${meta}</div>
           </div>
           <div class="relatorio-total">R$ ${total.toFixed(2)}</div>
         </div>
         <div class="relatorio-body" id="body-${r.id}">
           <table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table>
-          ${r.status === "aberto" ? `<div class="form-actions"><button class="btn btn-sm" data-encerrar="${r.id}">Encerrar relatório</button></div>` : ""}
+          <div class="form-actions">
+            <button class="btn btn-sm" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
+            ${r.status === "aberto" ? `<button class="btn btn-sm" data-encerrar="${r.id}">Encerrar relatório</button>` : ""}
+          </div>
         </div>
       </div>`;
   }).join("") || `<p class="page-subtitle">Nenhum relatório de viagem ainda.</p>`;
@@ -263,6 +276,13 @@ function renderRelatorios() {
       e.stopPropagation();
       await updateDoc(doc(db, "relatoriosViagem", btn.dataset.encerrar), { status: "encerrado" });
       toast("Relatório encerrado.");
+    });
+  });
+  document.querySelectorAll("[data-pdf-relatorio]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorio = state.relatorios.find((r) => r.id === btn.dataset.pdfRelatorio);
+      if (relatorio) baixarPdfRelatorio(relatorio);
     });
   });
 }
@@ -289,3 +309,91 @@ async function acionarReembolso(canal, despesaIds) {
     toast("Erro ao enviar para reembolso: " + err.message, true);
   }
 }
+
+// ---------- PDF ----------
+function novoPdf(titulo, subtitulo) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(`Eleve — ${titulo}`, 14, 18);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(130);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 24);
+  if (subtitulo) {
+    doc.setFontSize(10.5);
+    doc.setTextColor(60);
+    doc.text(subtitulo, 14, 31);
+  }
+  return doc;
+}
+
+function tabelaDespesasPdf(doc, despesas, startY) {
+  const linhas = despesas.map((d) => [
+    d.data ?? "—",
+    d.descricao ?? "",
+    CATEGORIA_LABEL[d.categoria] ?? d.categoria,
+    d.tipoDespesa ?? "—",
+    STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso,
+    `R$ ${(d.valor ?? 0).toFixed(2)}`,
+  ]);
+  const total = despesas.reduce((s, d) => s + (d.valor ?? 0), 0);
+  doc.autoTable({
+    startY: startY ?? 36,
+    head: [["Data", "Descrição", "Categoria", "Tipo", "Status", "Valor"]],
+    body: linhas,
+    foot: [["", "", "", "", "Total", `R$ ${total.toFixed(2)}`]],
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: [23, 27, 37] },
+    footStyles: { fillColor: [23, 27, 37], fontStyle: "bold" },
+    columnStyles: { 5: { halign: "right" } },
+  });
+  return total;
+}
+
+function nomeArquivo(base) {
+  return base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "_") + ".pdf";
+}
+
+function baixarPdfRelatorio(relatorio) {
+  const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === relatorio.id);
+  const subtitulo = [relatorio.destino, formatarPeriodo(relatorio)].filter(Boolean).join(" · ") || undefined;
+  const doc = novoPdf(relatorio.nome, subtitulo);
+  if (despesasDoRelatorio.length === 0) {
+    doc.setFontSize(11);
+    doc.setTextColor(120);
+    doc.text("Nenhuma despesa lançada neste relatório ainda.", 14, 40);
+  } else {
+    tabelaDespesasPdf(doc, despesasDoRelatorio);
+  }
+  doc.save(nomeArquivo(relatorio.nome));
+}
+
+document.getElementById("btn-pdf-despesas").addEventListener("click", () => {
+  const tipo = document.getElementById("filtro-tipo").value;
+  const status = document.getElementById("filtro-status").value;
+  const filtradas = state.despesas.filter((d) =>
+    (!tipo || d.tipoDespesa === tipo) && (!status || d.statusReembolso === status)
+  );
+  if (filtradas.length === 0) { toast("Nenhuma despesa para exportar com esse filtro.", true); return; }
+  const subtitulo = [tipo, status ? STATUS_LABEL[status] : ""].filter(Boolean).join(" · ") || "Todas as despesas";
+  const doc = novoPdf("Despesas", subtitulo);
+  tabelaDespesasPdf(doc, filtradas);
+  doc.save(nomeArquivo("eleve-despesas"));
+});
+
+document.getElementById("btn-pdf-extrato").addEventListener("click", () => {
+  if (state.despesas.length === 0) { toast("Nenhuma despesa lançada ainda.", true); return; }
+  const doc = novoPdf("Extrato completo", `${state.despesas.length} lançamento(s)`);
+  tabelaDespesasPdf(doc, state.despesas);
+  doc.save(nomeArquivo("eleve-extrato"));
+});
+
+document.getElementById("btn-pdf-reembolso").addEventListener("click", () => {
+  const pendentes = state.despesas.filter((d) => d.statusReembolso === "pendente");
+  if (pendentes.length === 0) { toast("Nenhuma despesa pendente de reembolso.", true); return; }
+  const doc = novoPdf("Pacote de reembolso", `${pendentes.length} despesa(s) pendente(s)`);
+  tabelaDespesasPdf(doc, pendentes);
+  doc.save(nomeArquivo("eleve-reembolso"));
+});
