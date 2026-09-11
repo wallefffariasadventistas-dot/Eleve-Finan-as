@@ -4,7 +4,8 @@
       "source": "functions",
       "codebase": "default",
       "runtime": "nodejs20",
-      "ignore": ["node_modules", ".git", "*.local"]
+      "ignore": ["node_modules", ".git", "*.local"],
+      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" install", "npm --prefix \"$RESOURCE_DIR\" run build"]
     }
   ],
   "hosting": {
