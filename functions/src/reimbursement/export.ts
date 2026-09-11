@@ -31,7 +31,12 @@ function montarResumo(
  * selecionadas e envia para a secretária, por e-mail ou WhatsApp. Marca as despesas como "enviado".
  */
 export const enviarParaReembolso = onCall<EnviarReembolsoRequest>(
-  { secrets: ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"] },
+  {
+    secrets: [
+      "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SECRETARY_EMAIL", "FROM_EMAIL",
+      "WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_SECRETARY_NUMBER",
+    ],
+  },
   async (req) => {
     if (!req.auth) {
       throw new HttpsError("unauthenticated", "É preciso estar autenticado no Eleve.");
