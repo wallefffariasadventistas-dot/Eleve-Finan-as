@@ -121,7 +121,6 @@ function renderDashboard() {
   const recentes = state.despesas.slice(0, 8);
   document.querySelector("#dashboard-recent tbody").innerHTML = recentes.map(linhaDespesaSimples).join("") ||
     `<tr><td colspan="6">Nenhum lançamento ainda.</td></tr>`;
-  anexarAcoesDespesa();
 }
 
 function linhaDespesaSimples(d) {
@@ -144,35 +143,42 @@ function botoesAcaoDespesa(d) {
   </div>`;
 }
 
-function anexarAcoesDespesa() {
-  document.querySelectorAll("[data-ver-comprovante]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const d = state.despesas.find((x) => x.id === btn.dataset.verComprovante);
-      const url = await getDownloadURL(ref(storage, d.comprovanteStoragePath));
-      window.open(url, "_blank");
-    });
-  });
-  document.querySelectorAll("[data-editar-despesa]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const d = state.despesas.find((x) => x.id === btn.dataset.editarDespesa);
-      if (d) abrirModalDespesaEdicao(d);
-    });
-  });
-  document.querySelectorAll("[data-excluir-despesa]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      if (!confirm("Excluir esta despesa? Essa ação não pode ser desfeita.")) return;
-      try {
-        await deleteDoc(doc(db, "despesas", btn.dataset.excluirDespesa));
-        toast("Despesa excluída.");
-      } catch (err) {
-        toast("Erro ao excluir despesa: " + err.message, true);
-      }
-    });
-  });
-}
+// Delegação de evento num único listener fixo em document: as tabelas de despesas são
+// recriadas via innerHTML toda vez que qualquer despesa muda em qualquer área do sistema,
+// então anexar um listener por botão a cada render duplicava listeners (múltiplos "Excluir?"
+// no mesmo clique). Delegar em document resolve isso de vez, não importa quantas vezes o
+// conteúdo é substituído.
+document.addEventListener("click", async (e) => {
+  const verBtn = e.target.closest("[data-ver-comprovante]");
+  if (verBtn) {
+    e.stopPropagation();
+    const d = state.despesas.find((x) => x.id === verBtn.dataset.verComprovante);
+    if (!d) return;
+    const url = await getDownloadURL(ref(storage, d.comprovanteStoragePath));
+    window.open(url, "_blank");
+    return;
+  }
+
+  const editarBtn = e.target.closest("[data-editar-despesa]");
+  if (editarBtn) {
+    e.stopPropagation();
+    const d = state.despesas.find((x) => x.id === editarBtn.dataset.editarDespesa);
+    if (d) abrirModalDespesaEdicao(d);
+    return;
+  }
+
+  const excluirBtn = e.target.closest("[data-excluir-despesa]");
+  if (excluirBtn) {
+    e.stopPropagation();
+    if (!confirm("Excluir esta despesa? Essa ação não pode ser desfeita.")) return;
+    try {
+      await deleteDoc(doc(db, "despesas", excluirBtn.dataset.excluirDespesa));
+      toast("Despesa excluída.");
+    } catch (err) {
+      toast("Erro ao excluir despesa: " + err.message, true);
+    }
+  }
+});
 
 function renderDepartamento() {
   const status = document.getElementById("filtro-status-departamento").value;
@@ -198,7 +204,6 @@ function renderDepartamento() {
       chk.checked ? state.selecionadas.add(chk.dataset.id) : state.selecionadas.delete(chk.dataset.id);
     });
   });
-  anexarAcoesDespesa();
 }
 document.getElementById("filtro-status-departamento").addEventListener("change", renderDepartamento);
 
@@ -217,7 +222,6 @@ function renderPessoal() {
     </tr>
   `).join("") || `<tr><td colspan="6">Nenhuma despesa pessoal lançada ainda.</td></tr>`;
 
-  anexarAcoesDespesa();
 }
 
 // ---------- MODAL DESPESA (lançamento manual) ----------
@@ -435,7 +439,6 @@ function renderRelatorios() {
       }
     });
   });
-  anexarAcoesDespesa();
 }
 
 // ---------- REEMBOLSO ----------
