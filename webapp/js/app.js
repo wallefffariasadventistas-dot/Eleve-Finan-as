@@ -21,7 +21,7 @@ const functions = getFunctions(app, FUNCTIONS_REGION);
 
 const state = {
   despesas: [], relatorios: [], selecionadas: new Set(), editandoDespesaId: null,
-  relatoriosExpandidos: new Set(),
+  editandoRelatorioId: null, relatoriosExpandidos: new Set(),
 };
 
 const CATEGORIA_LABEL = {
@@ -367,10 +367,29 @@ document.getElementById("form-despesa").addEventListener("submit", async (e) => 
 // ---------- MODAL RELATÓRIO ----------
 const modalRelatorio = document.getElementById("modal-relatorio");
 document.getElementById("btn-novo-relatorio").addEventListener("click", () => {
+  state.editandoRelatorioId = null;
   document.getElementById("form-relatorio").reset();
+  document.getElementById("modal-relatorio-eyebrow").textContent = "Viagem";
+  document.getElementById("modal-relatorio-titulo").textContent = "Novo relatório de viagem";
+  document.getElementById("btn-salvar-relatorio").textContent = "Criar";
   modalRelatorio.classList.add("show");
 });
-document.getElementById("btn-cancelar-relatorio").addEventListener("click", () => modalRelatorio.classList.remove("show"));
+function abrirModalRelatorioEdicao(r) {
+  state.editandoRelatorioId = r.id;
+  document.getElementById("form-relatorio").reset();
+  document.getElementById("modal-relatorio-eyebrow").textContent = "Editar";
+  document.getElementById("modal-relatorio-titulo").textContent = "Editar relatório de viagem";
+  document.getElementById("btn-salvar-relatorio").textContent = "Salvar alterações";
+  document.getElementById("r-nome").value = r.nome ?? "";
+  document.getElementById("r-destino").value = r.destino ?? "";
+  document.getElementById("r-data-inicio").value = r.dataInicio ?? "";
+  document.getElementById("r-data-fim").value = r.dataFim ?? "";
+  modalRelatorio.classList.add("show");
+}
+document.getElementById("btn-cancelar-relatorio").addEventListener("click", () => {
+  state.editandoRelatorioId = null;
+  modalRelatorio.classList.remove("show");
+});
 document.getElementById("btn-fechar-relatorio").addEventListener("click", () => {
   document.getElementById("btn-cancelar-relatorio").click();
 });
@@ -378,23 +397,30 @@ document.getElementById("form-relatorio").addEventListener("submit", async (e) =
   e.preventDefault();
   const btnSalvar = document.getElementById("btn-salvar-relatorio");
   if (btnSalvar.disabled) return;
+  const editandoId = state.editandoRelatorioId;
+  const textoOriginal = btnSalvar.textContent;
   btnSalvar.disabled = true;
-  btnSalvar.textContent = "Criando...";
+  btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
   try {
-    await addDoc(collection(db, "relatoriosViagem"), {
+    const payload = {
       nome: document.getElementById("r-nome").value,
       destino: document.getElementById("r-destino").value || null,
       dataInicio: document.getElementById("r-data-inicio").value || null,
       dataFim: document.getElementById("r-data-fim").value || null,
-      status: "aberto", criadoEm: serverTimestamp(),
-    });
+    };
+    if (editandoId) {
+      await updateDoc(doc(db, "relatoriosViagem", editandoId), payload);
+    } else {
+      await addDoc(collection(db, "relatoriosViagem"), { ...payload, status: "aberto", criadoEm: serverTimestamp() });
+    }
+    state.editandoRelatorioId = null;
     modalRelatorio.classList.remove("show");
-    toast("Relatório de viagem criado.");
+    toast(editandoId ? "Relatório de viagem atualizado." : "Relatório de viagem criado.");
   } catch (err) {
-    toast("Erro ao criar relatório: " + err.message, true);
+    toast("Erro ao salvar relatório: " + err.message, true);
   } finally {
     btnSalvar.disabled = false;
-    btnSalvar.textContent = "Criar";
+    btnSalvar.textContent = textoOriginal;
   }
 });
 
@@ -453,6 +479,7 @@ function renderRelatorios() {
           <div class="form-actions">
             <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
             <button class="btn btn-sm" data-comprovantes-relatorio="${r.id}">Baixar comprovantes (.zip)</button>
+            <button class="btn btn-sm" data-editar-relatorio="${r.id}">Editar relatório</button>
             <button class="btn btn-sm btn-danger" data-excluir-relatorio="${r.id}">Excluir relatório</button>
           </div>
         </div>
@@ -488,6 +515,13 @@ function renderRelatorios() {
       const relatorio = state.relatorios.find((r) => r.id === relatorioId);
       const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === relatorioId);
       baixarComprovantesZip(despesasDoRelatorio, `comprovantes-${relatorio?.nome ?? relatorioId}`);
+    });
+  });
+  document.querySelectorAll("[data-editar-relatorio]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorio = state.relatorios.find((r) => r.id === btn.dataset.editarRelatorio);
+      if (relatorio) abrirModalRelatorioEdicao(relatorio);
     });
   });
   document.querySelectorAll("[data-excluir-relatorio]").forEach((btn) => {
