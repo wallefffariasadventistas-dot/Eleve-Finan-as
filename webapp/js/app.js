@@ -79,6 +79,11 @@ function lerCampoMoeda(id) {
   const bruto = document.getElementById(id).value.replace(/\./g, "").replace(",", ".").trim();
   return bruto === "" ? null : Number(bruto);
 }
+// Mesmo padrão brasileiro (milhar com ponto, centavos com vírgula) usado em todo R$
+// exibido na tela — cards, tabelas, totais e PDFs — não só nos campos de digitação.
+function formatarMoedaExibicao(numero) {
+  return (numero ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 document.querySelectorAll(".input-moeda").forEach((input) => {
   input.addEventListener("input", () => {
     input.value = formatarValorMoeda(input.value);
@@ -198,7 +203,7 @@ function renderDashboard() {
   document.getElementById("dashboard-hero").innerHTML = `
     <div>
       <div class="hero-balance-label">Gasto no mês</div>
-      <div class="hero-balance-value">R$ ${totalMes.toFixed(2)}</div>
+      <div class="hero-balance-value">R$ ${formatarMoedaExibicao(totalMes)}</div>
     </div>
     <div class="hero-balance-icon">${ICON_SVG.carteira}</div>
   `;
@@ -206,20 +211,20 @@ function renderDashboard() {
   document.getElementById("dashboard-metrics").innerHTML = `
     <button type="button" class="metric-card clickable" id="metric-pendente-reembolso">
       <div class="metric-label">Pendente de reembolso</div>
-      <div class="metric-value amber">R$ ${totalPendente.toFixed(2)}</div>
+      <div class="metric-value amber">R$ ${formatarMoedaExibicao(totalPendente)}</div>
       <div class="metric-hint">Ver por área →</div>
     </button>
     <div class="metric-card tipo-viagem">
       <div class="metric-icon-row"><span class="icon-badge icon-viagem">${ICON_SVG.viagem}</span><span class="metric-label">Viagem</span></div>
-      <div class="metric-value">R$ ${porTipo.viagem.toFixed(2)}</div>
+      <div class="metric-value">R$ ${formatarMoedaExibicao(porTipo.viagem)}</div>
     </div>
     <div class="metric-card tipo-departamento">
       <div class="metric-icon-row"><span class="icon-badge icon-departamento">${ICON_SVG.departamento}</span><span class="metric-label">Departamento</span></div>
-      <div class="metric-value">R$ ${porTipo.departamento.toFixed(2)}</div>
+      <div class="metric-value">R$ ${formatarMoedaExibicao(porTipo.departamento)}</div>
     </div>
     <div class="metric-card tipo-pessoal">
       <div class="metric-icon-row"><span class="icon-badge icon-pessoal">${ICON_SVG.pessoal}</span><span class="metric-label">Pessoal</span></div>
-      <div class="metric-value">R$ ${porTipo.pessoal.toFixed(2)}</div>
+      <div class="metric-value">R$ ${formatarMoedaExibicao(porTipo.pessoal)}</div>
     </div>
   `;
   document.getElementById("metric-pendente-reembolso").addEventListener("click", abrirModalPendentes);
@@ -243,7 +248,7 @@ function renderPendentesModal() {
       <div class="pendentes-grupo">
         <div class="pendentes-grupo-header">
           <span class="pendentes-grupo-titulo">${grupo.titulo} · ${despesasGrupo.length} despesa(s)</span>
-          <span class="pendentes-grupo-total">R$ ${total.toFixed(2)}</span>
+          <span class="pendentes-grupo-total">R$ ${formatarMoedaExibicao(total)}</span>
         </div>
         <div class="table-wrap"><table><tbody>${despesasGrupo.map(linhaDespesaSimples).join("")}</tbody></table></div>
       </div>`;
@@ -261,7 +266,7 @@ function linhaDespesaSimples(d) {
     <td data-label="Descrição">${d.descricao ?? ""}</td>
     <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
     <td data-label="Tipo">${d.tipoDespesa ?? "—"}</td>
-    <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+    <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${formatarMoedaExibicao((d.valor ?? 0))}</td>
     <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
   </tr>`;
 }
@@ -357,7 +362,7 @@ function renderDepartamento() {
       <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
       <td data-label="Origem">${d.origem ?? ""}</td>
       <td data-label="Status"><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
-      <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${formatarMoedaExibicao((d.valor ?? 0))}</td>
       <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="8">Nenhuma despesa de departamento lançada ainda.</td></tr>`;
@@ -380,7 +385,7 @@ function renderPessoal() {
       <td data-label="Descrição">${d.descricao ?? ""}</td>
       <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
       <td data-label="Origem">${d.origem ?? ""}</td>
-      <td data-label="Valor" class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Valor" class="td-mono">R$ ${formatarMoedaExibicao((d.valor ?? 0))}</td>
       <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="6">Nenhuma despesa pessoal lançada ainda.</td></tr>`;
@@ -623,7 +628,7 @@ function renderRelatorios() {
             </div>
             <div class="relatorio-meta">${meta}</div>
           </div>
-          <div class="relatorio-total">R$ ${total.toFixed(2)}</div>
+          <div class="relatorio-total">R$ ${formatarMoedaExibicao(total)}</div>
         </div>
         <div class="relatorio-body${state.relatoriosExpandidos.has(r.id) ? " open" : ""}" id="body-${r.id}">
           <div class="rstatus-row">
@@ -714,7 +719,7 @@ function linhaNotaFixa(n) {
   return `<tr>
     <td data-label="Data">${n.data ?? "—"}</td>
     <td data-label="Descrição">${n.descricao ?? "—"}</td>
-    <td data-label="Valor" class="td-mono">${n.valor != null ? `R$ ${n.valor.toFixed(2)}` : "—"}</td>
+    <td data-label="Valor" class="td-mono">${n.valor != null ? `R$ ${formatarMoedaExibicao(n.valor)}` : "—"}</td>
     <td data-label="Ações">${botoesAcaoNotaFixa(n)}</td>
   </tr>`;
 }
@@ -740,7 +745,7 @@ function renderRelatoriosFixos() {
             <div class="relatorio-nome">${r.nome}</div>
             <div class="relatorio-meta">${meta}</div>
           </div>
-          <div class="relatorio-total">R$ ${total.toFixed(2)}</div>
+          <div class="relatorio-total">R$ ${formatarMoedaExibicao(total)}</div>
         </div>
         <div class="relatorio-body${state.relatoriosFixosExpandidos.has(r.id) ? " open" : ""}" id="body-fixo-${r.id}">
           <div class="table-wrap"><table><tbody>${notasDoRelatorio.map(linhaNotaFixa).join("") || "<tr><td>Nenhuma nota adicionada ainda.</td></tr>"}</tbody></table></div>
@@ -926,7 +931,7 @@ document.getElementById("btn-detectar-valor").addEventListener("click", async ()
     }
     toast(
       data.valor != null
-        ? `Valor detectado: R$ ${Number(data.valor).toFixed(2)}`
+        ? `Valor detectado: R$ ${formatarMoedaExibicao(Number(data.valor))}`
         : "Não consegui identificar o valor nesse arquivo — confira e digite manualmente.",
       data.valor == null
     );
@@ -999,14 +1004,14 @@ document.addEventListener("keydown", (e) => {
 
 function tabelaNotasPdf(doc, notas, startY) {
   const linhas = notas.map((n) => [
-    n.data ?? "—", n.descricao ?? "—", n.valor != null ? `R$ ${n.valor.toFixed(2)}` : "—",
+    n.data ?? "—", n.descricao ?? "—", n.valor != null ? `R$ ${formatarMoedaExibicao(n.valor)}` : "—",
   ]);
   const total = notas.reduce((s, n) => s + (n.valor ?? 0), 0);
   doc.autoTable({
     startY: startY ?? 36,
     head: [["Data", "Descrição", "Valor"]],
     body: linhas,
-    foot: [["", "Total", `R$ ${total.toFixed(2)}`]],
+    foot: [["", "Total", `R$ ${formatarMoedaExibicao(total)}`]],
     styles: { fontSize: 9, cellPadding: 4 },
     headStyles: { fillColor: [23, 27, 37] },
     footStyles: { fillColor: [23, 27, 37], fontStyle: "bold" },
@@ -1070,16 +1075,16 @@ function renderCompromissos() {
   const subtotal = totalCompromissos + totalPessoal;
 
   document.getElementById("compromissos-metrics").innerHTML = `
-    <div class="metric-card"><div class="metric-label">Compromissos no mês</div><div class="metric-value">R$ ${totalCompromissos.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Despesas pessoais no mês</div><div class="metric-value">R$ ${totalPessoal.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Subtotal (compromissos + pessoal)</div><div class="metric-value green">R$ ${subtotal.toFixed(2)}</div></div>
+    <div class="metric-card"><div class="metric-label">Compromissos no mês</div><div class="metric-value">R$ ${formatarMoedaExibicao(totalCompromissos)}</div></div>
+    <div class="metric-card"><div class="metric-label">Despesas pessoais no mês</div><div class="metric-value">R$ ${formatarMoedaExibicao(totalPessoal)}</div></div>
+    <div class="metric-card"><div class="metric-label">Subtotal (compromissos + pessoal)</div><div class="metric-value green">R$ ${formatarMoedaExibicao(subtotal)}</div></div>
   `;
 
   document.querySelector("#tabela-compromissos tbody").innerHTML = ativos.map((c) => `
     <tr>
       <td data-label="Compromisso">${c.nome}</td>
       <td data-label="Parcela">${c.parcelas != null ? `${numeroDaParcela(c, mesSelecionado)} de ${c.parcelas}` : "Recorrente"}</td>
-      <td data-label="Valor" class="td-mono">R$ ${(c.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Valor" class="td-mono">R$ ${formatarMoedaExibicao((c.valor ?? 0))}</td>
       <td data-label="Ações">${botoesAcaoCompromisso(c)}</td>
     </tr>
   `).join("") || `<tr><td colspan="4">Nenhum compromisso neste mês.</td></tr>`;
@@ -1203,9 +1208,9 @@ function renderSubvencoes() {
   const totalRecebido = state.subvencoes.filter((s) => s.status === "recebida").reduce((sum, s) => sum + (s.valor ?? 0), 0);
 
   document.getElementById("subvencoes-metrics").innerHTML = `
-    <div class="metric-card"><div class="metric-label">A receber (pendente)</div><div class="metric-value amber">R$ ${totalPendente.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Recebido</div><div class="metric-value green">R$ ${totalRecebido.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Total geral</div><div class="metric-value">R$ ${(totalPendente + totalRecebido).toFixed(2)}</div></div>
+    <div class="metric-card"><div class="metric-label">A receber (pendente)</div><div class="metric-value amber">R$ ${formatarMoedaExibicao(totalPendente)}</div></div>
+    <div class="metric-card"><div class="metric-label">Recebido</div><div class="metric-value green">R$ ${formatarMoedaExibicao(totalRecebido)}</div></div>
+    <div class="metric-card"><div class="metric-label">Total geral</div><div class="metric-value">R$ ${formatarMoedaExibicao((totalPendente + totalRecebido))}</div></div>
   `;
 
   document.querySelector("#tabela-subvencoes tbody").innerHTML = filtradas.map((s) => `
@@ -1214,7 +1219,7 @@ function renderSubvencoes() {
         <span class="row-origem"><span class="icon-badge icon-${s.origem}">${ICON_SVG.cifrao}</span>${ORIGEM_SUBVENCAO_LABEL[s.origem] ?? s.origem}</span>
       </td>
       <td data-label="Observação">${s.observacao ?? ""}</td>
-      <td data-label="Valor" class="td-mono ${s.status === "recebida" ? "valor-recebido" : "valor-pendente"}">R$ ${(s.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Valor" class="td-mono ${s.status === "recebida" ? "valor-recebido" : "valor-pendente"}">R$ ${formatarMoedaExibicao((s.valor ?? 0))}</td>
       <td data-label="Status"><span class="badge ${STATUS_SUBVENCAO_BADGE[s.status]}">${STATUS_SUBVENCAO_LABEL[s.status] ?? s.status}</span></td>
       <td data-label="Ações">${botoesAcaoSubvencao(s)}</td>
     </tr>
@@ -1416,14 +1421,14 @@ function tabelaDespesasPdf(doc, despesas, startY, omitirTipo) {
       CATEGORIA_LABEL[d.categoria] ?? d.categoria,
     ];
     if (!omitirTipo) linha.push(d.tipoDespesa ?? "—");
-    linha.push(STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso, `R$ ${(d.valor ?? 0).toFixed(2)}`);
+    linha.push(STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso, `R$ ${formatarMoedaExibicao((d.valor ?? 0))}`);
     return linha;
   });
   const total = despesas.reduce((s, d) => s + (d.valor ?? 0), 0);
   const ultimaColuna = colunas.length - 1;
   const linhaTotal = colunas.map(() => "");
   linhaTotal[ultimaColuna - 1] = "Total";
-  linhaTotal[ultimaColuna] = `R$ ${total.toFixed(2)}`;
+  linhaTotal[ultimaColuna] = `R$ ${formatarMoedaExibicao(total)}`;
   doc.autoTable({
     startY: startY ?? 36,
     head: [colunas],
@@ -1519,7 +1524,7 @@ document.getElementById("btn-pdf-extrato").addEventListener("click", () => {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(20);
-  doc.text(`Total geral: R$ ${totalGeral.toFixed(2)}`, 14, y);
+  doc.text(`Total geral: R$ ${formatarMoedaExibicao(totalGeral)}`, 14, y);
 
   doc.save(nomeArquivo("eleve-extrato"));
 });
