@@ -212,8 +212,15 @@ textarea { min-height: 64px; resize: vertical; }
 @media (max-width: 768px) {
   html, body { overflow-x: hidden; }
   .shell { flex-direction: column; }
-  nav { position: static; width: 100%; flex-direction: row; align-items: center; }
-  .nav-brand { display: none; }
+  nav { position: static; width: 100%; flex-direction: column; align-items: stretch; }
+  /* Espaço acima da barra de menu, incluindo a área do notch/status bar no modo
+     tela cheia (PWA instalado) — sem isso o topo da barra ficava por baixo do
+     relógio/sinal do celular e não dava pra clicar nem rolar até as opções. */
+  .nav-brand {
+    padding: max(12px, env(safe-area-inset-top)) 14px 10px; justify-content: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-brand p { display: none; }
   .nav-items { display: flex; flex-direction: row; overflow-x: auto; padding: 8px; min-width: 0; }
   .nav-item { white-space: nowrap; }
   .logout-btn { display: none; }
