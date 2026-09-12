@@ -538,25 +538,34 @@ function novoPdf(titulo, subtitulo) {
   return doc;
 }
 
-function tabelaDespesasPdf(doc, despesas, startY) {
-  const linhas = despesas.map((d) => [
-    d.data ?? "—",
-    d.descricao ?? "",
-    CATEGORIA_LABEL[d.categoria] ?? d.categoria,
-    d.tipoDespesa ?? "—",
-    STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso,
-    `R$ ${(d.valor ?? 0).toFixed(2)}`,
-  ]);
+function tabelaDespesasPdf(doc, despesas, startY, omitirTipo) {
+  const colunas = omitirTipo
+    ? ["Data", "Descrição", "Categoria", "Status", "Valor"]
+    : ["Data", "Descrição", "Categoria", "Tipo", "Status", "Valor"];
+  const linhas = despesas.map((d) => {
+    const linha = [
+      d.data ?? "—",
+      d.descricao ?? "",
+      CATEGORIA_LABEL[d.categoria] ?? d.categoria,
+    ];
+    if (!omitirTipo) linha.push(d.tipoDespesa ?? "—");
+    linha.push(STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso, `R$ ${(d.valor ?? 0).toFixed(2)}`);
+    return linha;
+  });
   const total = despesas.reduce((s, d) => s + (d.valor ?? 0), 0);
+  const ultimaColuna = colunas.length - 1;
+  const linhaTotal = colunas.map(() => "");
+  linhaTotal[ultimaColuna - 1] = "Total";
+  linhaTotal[ultimaColuna] = `R$ ${total.toFixed(2)}`;
   doc.autoTable({
     startY: startY ?? 36,
-    head: [["Data", "Descrição", "Categoria", "Tipo", "Status", "Valor"]],
+    head: [colunas],
     body: linhas,
-    foot: [["", "", "", "", "Total", `R$ ${total.toFixed(2)}`]],
+    foot: [linhaTotal],
     styles: { fontSize: 9, cellPadding: 4 },
     headStyles: { fillColor: [23, 27, 37] },
     footStyles: { fillColor: [23, 27, 37], fontStyle: "bold" },
-    columnStyles: { 5: { halign: "right" } },
+    columnStyles: { [ultimaColuna]: { halign: "right" } },
   });
   return total;
 }
@@ -599,7 +608,45 @@ document.getElementById("btn-pdf-pessoal").addEventListener("click", () => {
 document.getElementById("btn-pdf-extrato").addEventListener("click", () => {
   if (state.despesas.length === 0) { toast("Nenhuma despesa lançada ainda.", true); return; }
   const doc = novoPdf("Extrato completo", `${state.despesas.length} lançamento(s)`);
-  tabelaDespesasPdf(doc, state.despesas);
+
+  const grupos = [
+    { titulo: "Viagem", tipo: "viagem" },
+    { titulo: "Departamento", tipo: "departamento" },
+    { titulo: "Pessoal", tipo: "pessoal" },
+  ];
+
+  let y = 36;
+  let totalGeral = 0;
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  for (const grupo of grupos) {
+    const despesasGrupo = state.despesas.filter((d) => d.tipoDespesa === grupo.tipo);
+    if (despesasGrupo.length === 0) continue;
+
+    if (y > pageHeight - 40) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12.5);
+    doc.setTextColor(20);
+    doc.text(grupo.titulo, 14, y);
+    y += 6;
+
+    totalGeral += tabelaDespesasPdf(doc, despesasGrupo, y, true);
+    y = doc.lastAutoTable.finalY + 16;
+  }
+
+  if (y > pageHeight - 20) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(20);
+  doc.text(`Total geral: R$ ${totalGeral.toFixed(2)}`, 14, y);
+
   doc.save(nomeArquivo("eleve-extrato"));
 });
 
