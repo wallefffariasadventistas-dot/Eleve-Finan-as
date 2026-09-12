@@ -26,6 +26,10 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    match /subvencoes/{subvencaoId} {
+      allow read, write: if request.auth != null;
+    }
+
     // Estado de conversa do WhatsApp só é lido/escrito pelo backend (Admin SDK),
     // nunca diretamente pelo navegador.
     match /estadoConversa/{numero} {

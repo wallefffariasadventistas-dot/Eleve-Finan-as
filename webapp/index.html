@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=23" />
+<link rel="stylesheet" href="css/style.css?v=24" />
 </head>
 <body>
 
@@ -74,6 +74,10 @@
       <button class="nav-item" data-section="fixo">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2.5"/></svg>
         Relatório Fixo Mensal
+      </button>
+      <button class="nav-item" data-section="subvencoes">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Subvenções
       </button>
       <button class="nav-item" data-section="reembolso">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -208,6 +212,35 @@
       </header>
       <p class="page-subtitle">Guarde aqui as notas fiscais, cupons, recibos e comprovantes que você vai juntando ao longo do mês para o envio mensal. O valor de cada nota pode ser digitado à mão ou detectado automaticamente lendo o arquivo.</p>
       <div id="lista-relatorios-fixos"></div>
+    </section>
+
+    <section id="section-subvencoes" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">União · Campo · Projetos</p>
+          <h2 class="page-title">Subvenções</h2>
+        </div>
+        <button class="btn btn-primary" id="btn-nova-subvencao">+ Nova subvenção</button>
+      </header>
+      <p class="page-subtitle">Acompanhe os valores de subvenção que você recebe da União, do Campo ou de Projetos — o que já foi recebido e o que ainda está pendente.</p>
+      <div class="filter-bar">
+        <select id="filtro-status-subvencao">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente</option>
+          <option value="recebida">Recebida</option>
+        </select>
+      </div>
+      <div id="subvencoes-metrics" class="metrics"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table id="tabela-subvencoes">
+            <thead>
+              <tr><th>Origem</th><th>Observação</th><th>Valor</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section id="section-reembolso" class="section">
@@ -352,6 +385,41 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-subvencao">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-subvencao" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow" id="modal-subvencao-eyebrow">Subvenções</p>
+    <h2 id="modal-subvencao-titulo">Nova subvenção</h2>
+    <form id="form-subvencao">
+      <div class="form-grid">
+        <div class="field">
+          <label>Origem</label>
+          <select id="sv-origem">
+            <option value="uniao">União</option>
+            <option value="campo">Campo</option>
+            <option value="projetos">Projetos</option>
+          </select>
+        </div>
+        <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" id="sv-valor" required /></div>
+        <div class="field">
+          <label>Status</label>
+          <select id="sv-status">
+            <option value="pendente">Pendente</option>
+            <option value="recebida">Recebida</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid wide">
+        <div class="field"><label>Observação</label><textarea id="sv-observacao" placeholder="Ex: Projeto Adote um Leitor, ajuda de custo Sonhando Alto..." required></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-subvencao">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-subvencao">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-compromisso">
   <div class="modal">
     <button type="button" class="modal-close" id="btn-fechar-compromisso" aria-label="Fechar">&times;</button>
@@ -397,7 +465,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=23"></script>
+<script type="module" src="js/app.js?v=24"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

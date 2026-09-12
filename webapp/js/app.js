@@ -25,6 +25,7 @@ const state = {
   relatoriosFixos: [], notasFixas: [], editandoRelatorioFixoId: null, editandoNotaId: null,
   relatoriosFixosExpandidos: new Set(), notaFixaRelatorioAtual: null,
   compromissos: [], editandoCompromissoId: null,
+  subvencoes: [], editandoSubvencaoId: null,
 };
 
 const CATEGORIA_LABEL = {
@@ -42,6 +43,9 @@ const GRUPOS_TIPO_DESPESA = [
   { titulo: "Departamento", tipo: "departamento" },
   { titulo: "Pessoal", tipo: "pessoal" },
 ];
+const ORIGEM_SUBVENCAO_LABEL = { uniao: "União", campo: "Campo", projetos: "Projetos" };
+const STATUS_SUBVENCAO_LABEL = { pendente: "Pendente", recebida: "Recebida" };
+const STATUS_SUBVENCAO_BADGE = { pendente: "badge-pendente", recebida: "badge-reembolsado" };
 
 function calcularReembolsavel(tipo) { return tipo === "viagem" || tipo === "departamento"; }
 
@@ -140,6 +144,10 @@ function startListeners() {
   onSnapshot(collection(db, "compromissosMensais"), (snap) => {
     state.compromissos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderCompromissos();
+  });
+  onSnapshot(collection(db, "subvencoes"), (snap) => {
+    state.subvencoes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderSubvencoes();
   });
 }
 
@@ -1127,6 +1135,139 @@ document.getElementById("form-compromisso").addEventListener("submit", async (e)
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (modalCompromisso.classList.contains("show")) document.getElementById("btn-fechar-compromisso").click();
+});
+
+// ---------- SUBVENÇÕES ----------
+function botoesAcaoSubvencao(s) {
+  const proximoStatus = s.status === "pendente" ? "recebida" : "pendente";
+  const textoToggle = s.status === "pendente" ? "Marcar como recebida" : "Marcar como pendente";
+  return `<div class="row-actions">
+    <button class="btn btn-sm" data-toggle-status-subvencao="${s.id}" data-proximo-status="${proximoStatus}">${textoToggle}</button>
+    <button class="btn btn-sm" data-editar-subvencao="${s.id}">Editar</button>
+    <button class="btn btn-sm btn-danger" data-excluir-subvencao="${s.id}">Excluir</button>
+  </div>`;
+}
+
+function renderSubvencoes() {
+  const status = document.getElementById("filtro-status-subvencao").value;
+  const filtradas = state.subvencoes.filter((s) => !status || s.status === status);
+
+  const totalPendente = state.subvencoes.filter((s) => s.status === "pendente").reduce((sum, s) => sum + (s.valor ?? 0), 0);
+  const totalRecebido = state.subvencoes.filter((s) => s.status === "recebida").reduce((sum, s) => sum + (s.valor ?? 0), 0);
+
+  document.getElementById("subvencoes-metrics").innerHTML = `
+    <div class="metric-card"><div class="metric-label">A receber (pendente)</div><div class="metric-value amber">R$ ${totalPendente.toFixed(2)}</div></div>
+    <div class="metric-card"><div class="metric-label">Recebido</div><div class="metric-value green">R$ ${totalRecebido.toFixed(2)}</div></div>
+    <div class="metric-card"><div class="metric-label">Total geral</div><div class="metric-value">R$ ${(totalPendente + totalRecebido).toFixed(2)}</div></div>
+  `;
+
+  document.querySelector("#tabela-subvencoes tbody").innerHTML = filtradas.map((s) => `
+    <tr>
+      <td data-label="Origem">${ORIGEM_SUBVENCAO_LABEL[s.origem] ?? s.origem}</td>
+      <td data-label="Observação">${s.observacao ?? ""}</td>
+      <td data-label="Valor" class="td-mono">R$ ${(s.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Status"><span class="badge ${STATUS_SUBVENCAO_BADGE[s.status]}">${STATUS_SUBVENCAO_LABEL[s.status] ?? s.status}</span></td>
+      <td data-label="Ações">${botoesAcaoSubvencao(s)}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Nenhuma subvenção lançada ainda.</td></tr>`;
+
+  document.querySelectorAll("#tabela-subvencoes [data-toggle-status-subvencao]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await updateDoc(doc(db, "subvencoes", btn.dataset.toggleStatusSubvencao), { status: btn.dataset.proximoStatus });
+        toast(`Subvenção marcada como "${STATUS_SUBVENCAO_LABEL[btn.dataset.proximoStatus]}".`);
+      } catch (err) {
+        toast("Erro ao atualizar subvenção: " + err.message, true);
+      }
+    });
+  });
+  document.querySelectorAll("#tabela-subvencoes [data-editar-subvencao]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const s = state.subvencoes.find((x) => x.id === btn.dataset.editarSubvencao);
+      if (s) abrirModalSubvencaoEdicao(s);
+    });
+  });
+  document.querySelectorAll("#tabela-subvencoes [data-excluir-subvencao]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir esta subvenção? Essa ação não pode ser desfeita.")) return;
+      try {
+        await deleteDoc(doc(db, "subvencoes", btn.dataset.excluirSubvencao));
+        toast("Subvenção excluída.");
+      } catch (err) {
+        toast("Erro ao excluir subvenção: " + err.message, true);
+      }
+    });
+  });
+}
+document.getElementById("filtro-status-subvencao").addEventListener("change", renderSubvencoes);
+
+const modalSubvencao = document.getElementById("modal-subvencao");
+document.getElementById("btn-nova-subvencao").addEventListener("click", () => {
+  state.editandoSubvencaoId = null;
+  document.getElementById("form-subvencao").reset();
+  document.getElementById("modal-subvencao-eyebrow").textContent = "Subvenções";
+  document.getElementById("modal-subvencao-titulo").textContent = "Nova subvenção";
+  document.getElementById("btn-salvar-subvencao").textContent = "Criar";
+  modalSubvencao.classList.add("show");
+});
+function abrirModalSubvencaoEdicao(s) {
+  state.editandoSubvencaoId = s.id;
+  document.getElementById("form-subvencao").reset();
+  document.getElementById("modal-subvencao-eyebrow").textContent = "Editar";
+  document.getElementById("modal-subvencao-titulo").textContent = "Editar subvenção";
+  document.getElementById("btn-salvar-subvencao").textContent = "Salvar alterações";
+  document.getElementById("sv-origem").value = s.origem ?? "uniao";
+  document.getElementById("sv-valor").value = s.valor ?? "";
+  document.getElementById("sv-status").value = s.status ?? "pendente";
+  document.getElementById("sv-observacao").value = s.observacao ?? "";
+  modalSubvencao.classList.add("show");
+}
+document.getElementById("btn-cancelar-subvencao").addEventListener("click", () => {
+  state.editandoSubvencaoId = null;
+  modalSubvencao.classList.remove("show");
+});
+document.getElementById("btn-fechar-subvencao").addEventListener("click", () => {
+  document.getElementById("btn-cancelar-subvencao").click();
+});
+document.getElementById("form-subvencao").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btnSalvar = document.getElementById("btn-salvar-subvencao");
+  if (btnSalvar.disabled) return;
+  const editandoId = state.editandoSubvencaoId;
+  const textoOriginal = btnSalvar.textContent;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
+  try {
+    const payload = {
+      origem: document.getElementById("sv-origem").value,
+      valor: Number(document.getElementById("sv-valor").value),
+      status: document.getElementById("sv-status").value,
+      observacao: document.getElementById("sv-observacao").value,
+    };
+    if (editandoId) {
+      await updateDoc(doc(db, "subvencoes", editandoId), payload);
+    } else {
+      await addDoc(collection(db, "subvencoes"), { ...payload, criadoEm: serverTimestamp() });
+    }
+    state.editandoSubvencaoId = null;
+    modalSubvencao.classList.remove("show");
+    toast(editandoId ? "Subvenção atualizada." : "Subvenção lançada.");
+  } catch (err) {
+    toast("Erro ao salvar subvenção: " + err.message, true);
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = textoOriginal;
+  }
+});
+
+[modalSubvencao].forEach((overlay) => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.querySelector(".modal-close").click();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (modalSubvencao.classList.contains("show")) document.getElementById("btn-fechar-subvencao").click();
 });
 
 // ---------- REEMBOLSO ----------
