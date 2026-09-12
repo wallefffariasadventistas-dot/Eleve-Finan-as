@@ -24,6 +24,7 @@ const state = {
   editandoRelatorioId: null, relatoriosExpandidos: new Set(),
   relatoriosFixos: [], notasFixas: [], editandoRelatorioFixoId: null, editandoNotaId: null,
   relatoriosFixosExpandidos: new Set(), notaFixaRelatorioAtual: null,
+  compromissos: [], editandoCompromissoId: null,
 };
 
 const CATEGORIA_LABEL = {
@@ -43,6 +44,11 @@ const GRUPOS_TIPO_DESPESA = [
 ];
 
 function calcularReembolsavel(tipo) { return tipo === "viagem" || tipo === "departamento"; }
+
+function mesAtualISO() {
+  const hoje = new Date();
+  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+}
 
 // Despesa de viagem cujo relatório já foi marcado como "Pago" já foi reembolsada junto com
 // o relatório, mesmo que o campo statusReembolso da despesa em si ainda diga "pendente".
@@ -112,6 +118,8 @@ function startListeners() {
     renderDepartamento();
     renderPessoal();
     renderRelatorios();
+    // O subtotal de Compromissos Mensais soma junto as despesas pessoais do mês.
+    renderCompromissos();
   });
   onSnapshot(collection(db, "relatoriosViagem"), (snap) => {
     state.relatorios = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -129,12 +137,15 @@ function startListeners() {
     state.notasFixas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderRelatoriosFixos();
   });
+  onSnapshot(collection(db, "compromissosMensais"), (snap) => {
+    state.compromissos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderCompromissos();
+  });
 }
 
 // ---------- DASHBOARD ----------
 function renderDashboard() {
-  const hoje = new Date();
-  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  const mesAtual = mesAtualISO();
   const totalMes = state.despesas
     .filter((d) => d.data && d.data.startsWith(mesAtual))
     .reduce((s, d) => s + (d.valor ?? 0), 0);
@@ -961,6 +972,162 @@ function baixarPdfRelatorioFixo(relatorio) {
   }
   doc.save(nomeArquivo(relatorio.nome));
 }
+
+// ---------- COMPROMISSOS MENSAIS ----------
+function somarMeses(mesIso, quantidade) {
+  const [ano, mes] = mesIso.split("-").map(Number);
+  const data = new Date(ano, mes - 1 + quantidade, 1);
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function numeroDaParcela(c, mesSelecionado) {
+  const [anoInicio, mesInicio] = c.mesInicio.split("-").map(Number);
+  const [anoSel, mesSel] = mesSelecionado.split("-").map(Number);
+  return (anoSel - anoInicio) * 12 + (mesSel - mesInicio) + 1;
+}
+
+// Recorrente (parcelas == null) conta em todo mês a partir do mês de início.
+// Parcelado conta só enquanto o mês selecionado estiver dentro do número de parcelas.
+function compromissoAtivoNoMes(c, mesSelecionado) {
+  if (!c.mesInicio || c.mesInicio > mesSelecionado) return false;
+  if (c.parcelas == null) return true;
+  const mesFim = somarMeses(c.mesInicio, c.parcelas - 1);
+  return mesSelecionado <= mesFim;
+}
+
+function botoesAcaoCompromisso(c) {
+  return `<div class="row-actions">
+    <button class="btn btn-sm" data-editar-compromisso="${c.id}">Editar</button>
+    <button class="btn btn-sm btn-danger" data-excluir-compromisso="${c.id}">Excluir</button>
+  </div>`;
+}
+
+function renderCompromissos() {
+  const inputMes = document.getElementById("compromissos-mes");
+  if (!inputMes.value) inputMes.value = mesAtualISO();
+  const mesSelecionado = inputMes.value;
+
+  const ativos = state.compromissos.filter((c) => compromissoAtivoNoMes(c, mesSelecionado));
+  const totalCompromissos = ativos.reduce((s, c) => s + (c.valor ?? 0), 0);
+  const totalPessoal = state.despesas
+    .filter((d) => d.tipoDespesa === "pessoal" && d.data && d.data.startsWith(mesSelecionado))
+    .reduce((s, d) => s + (d.valor ?? 0), 0);
+  const subtotal = totalCompromissos + totalPessoal;
+
+  document.getElementById("compromissos-metrics").innerHTML = `
+    <div class="metric-card"><div class="metric-label">Compromissos no mês</div><div class="metric-value">R$ ${totalCompromissos.toFixed(2)}</div></div>
+    <div class="metric-card"><div class="metric-label">Despesas pessoais no mês</div><div class="metric-value">R$ ${totalPessoal.toFixed(2)}</div></div>
+    <div class="metric-card"><div class="metric-label">Subtotal (compromissos + pessoal)</div><div class="metric-value green">R$ ${subtotal.toFixed(2)}</div></div>
+  `;
+
+  document.querySelector("#tabela-compromissos tbody").innerHTML = ativos.map((c) => `
+    <tr>
+      <td data-label="Compromisso">${c.nome}</td>
+      <td data-label="Parcela">${c.parcelas != null ? `${numeroDaParcela(c, mesSelecionado)} de ${c.parcelas}` : "Recorrente"}</td>
+      <td data-label="Valor" class="td-mono">R$ ${(c.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Ações">${botoesAcaoCompromisso(c)}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Nenhum compromisso neste mês.</td></tr>`;
+
+  document.querySelectorAll("#tabela-compromissos [data-editar-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const c = state.compromissos.find((x) => x.id === btn.dataset.editarCompromisso);
+      if (c) abrirModalCompromissoEdicao(c);
+    });
+  });
+  document.querySelectorAll("#tabela-compromissos [data-excluir-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir este compromisso mensal? Essa ação não pode ser desfeita.")) return;
+      try {
+        await deleteDoc(doc(db, "compromissosMensais", btn.dataset.excluirCompromisso));
+        toast("Compromisso excluído.");
+      } catch (err) {
+        toast("Erro ao excluir compromisso: " + err.message, true);
+      }
+    });
+  });
+}
+document.getElementById("compromissos-mes").addEventListener("change", renderCompromissos);
+
+const modalCompromisso = document.getElementById("modal-compromisso");
+function toggleCampoParcelas() {
+  document.getElementById("campo-parcelas").hidden = document.getElementById("cm-tipo-parcelas").value !== "parcelado";
+}
+document.getElementById("cm-tipo-parcelas").addEventListener("change", toggleCampoParcelas);
+
+document.getElementById("btn-novo-compromisso").addEventListener("click", () => {
+  state.editandoCompromissoId = null;
+  document.getElementById("form-compromisso").reset();
+  document.getElementById("modal-compromisso-eyebrow").textContent = "Compromissos Mensais";
+  document.getElementById("modal-compromisso-titulo").textContent = "Novo compromisso mensal";
+  document.getElementById("btn-salvar-compromisso").textContent = "Criar";
+  document.getElementById("cm-mes-inicio").value = document.getElementById("compromissos-mes").value || mesAtualISO();
+  document.getElementById("cm-tipo-parcelas").value = "recorrente";
+  toggleCampoParcelas();
+  modalCompromisso.classList.add("show");
+});
+function abrirModalCompromissoEdicao(c) {
+  state.editandoCompromissoId = c.id;
+  document.getElementById("form-compromisso").reset();
+  document.getElementById("modal-compromisso-eyebrow").textContent = "Editar";
+  document.getElementById("modal-compromisso-titulo").textContent = "Editar compromisso mensal";
+  document.getElementById("btn-salvar-compromisso").textContent = "Salvar alterações";
+  document.getElementById("cm-nome").value = c.nome ?? "";
+  document.getElementById("cm-valor").value = c.valor ?? "";
+  document.getElementById("cm-mes-inicio").value = c.mesInicio ?? mesAtualISO();
+  document.getElementById("cm-tipo-parcelas").value = c.parcelas != null ? "parcelado" : "recorrente";
+  document.getElementById("cm-parcelas").value = c.parcelas ?? "";
+  toggleCampoParcelas();
+  modalCompromisso.classList.add("show");
+}
+document.getElementById("btn-cancelar-compromisso").addEventListener("click", () => {
+  state.editandoCompromissoId = null;
+  modalCompromisso.classList.remove("show");
+});
+document.getElementById("btn-fechar-compromisso").addEventListener("click", () => {
+  document.getElementById("btn-cancelar-compromisso").click();
+});
+document.getElementById("form-compromisso").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btnSalvar = document.getElementById("btn-salvar-compromisso");
+  if (btnSalvar.disabled) return;
+  const editandoId = state.editandoCompromissoId;
+  const textoOriginal = btnSalvar.textContent;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
+  try {
+    const tipoParcelas = document.getElementById("cm-tipo-parcelas").value;
+    const payload = {
+      nome: document.getElementById("cm-nome").value,
+      valor: Number(document.getElementById("cm-valor").value),
+      mesInicio: document.getElementById("cm-mes-inicio").value,
+      parcelas: tipoParcelas === "parcelado" ? Number(document.getElementById("cm-parcelas").value) : null,
+    };
+    if (editandoId) {
+      await updateDoc(doc(db, "compromissosMensais", editandoId), payload);
+    } else {
+      await addDoc(collection(db, "compromissosMensais"), { ...payload, criadoEm: serverTimestamp() });
+    }
+    state.editandoCompromissoId = null;
+    modalCompromisso.classList.remove("show");
+    toast(editandoId ? "Compromisso atualizado." : "Compromisso mensal criado.");
+  } catch (err) {
+    toast("Erro ao salvar compromisso: " + err.message, true);
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = textoOriginal;
+  }
+});
+
+[modalCompromisso].forEach((overlay) => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.querySelector(".modal-close").click();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (modalCompromisso.classList.contains("show")) document.getElementById("btn-fechar-compromisso").click();
+});
 
 // ---------- REEMBOLSO ----------
 const enviarParaReembolso = httpsCallable(functions, "enviarParaReembolso");

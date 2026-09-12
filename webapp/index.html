@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=22" />
+<link rel="stylesheet" href="css/style.css?v=23" />
 </head>
 <body>
 
@@ -66,6 +66,10 @@
       <button class="nav-item" data-section="pessoal">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
         Despesas Pessoais
+      </button>
+      <button class="nav-item" data-section="compromissos">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/><rect x="3" y="4" width="18" height="18" rx="2.5"/></svg>
+        Compromissos Mensais
       </button>
       <button class="nav-item" data-section="fixo">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2.5"/></svg>
@@ -161,6 +165,32 @@
           <table id="tabela-pessoal">
             <thead>
               <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Origem</th><th>Valor</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-compromissos" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Contas fixas · Controle pessoal</p>
+          <h2 class="page-title">Compromissos Mensais</h2>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-compromisso">+ Novo compromisso</button>
+      </header>
+      <p class="page-subtitle">Cadastre suas contas e compromissos fixos (financiamento, água, energia, internet etc). Diga se é recorrente ou se tem um número certo de parcelas, e acompanhe mês a mês quanto isso soma junto com suas despesas pessoais.</p>
+      <div class="filter-bar">
+        <label class="field-hint" for="compromissos-mes" style="align-self:center;">Mês:</label>
+        <input type="month" id="compromissos-mes" />
+      </div>
+      <div id="compromissos-metrics" class="metrics"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table id="tabela-compromissos">
+            <thead>
+              <tr><th>Compromisso</th><th>Parcela</th><th>Valor</th><th></th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -322,6 +352,38 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-compromisso">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-compromisso" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow" id="modal-compromisso-eyebrow">Compromissos Mensais</p>
+    <h2 id="modal-compromisso-titulo">Novo compromisso mensal</h2>
+    <form id="form-compromisso">
+      <div class="form-grid wide">
+        <div class="field"><label>Nome</label><input type="text" id="cm-nome" placeholder="Ex: Financiamento do carro, Conta de água..." required /></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Valor mensal (R$)</label><input type="number" step="0.01" id="cm-valor" required /></div>
+        <div class="field"><label>Mês de início</label><input type="month" id="cm-mes-inicio" required /></div>
+        <div class="field">
+          <label>Duração</label>
+          <select id="cm-tipo-parcelas">
+            <option value="recorrente">Recorrente (todo mês)</option>
+            <option value="parcelado">Número fixo de parcelas</option>
+          </select>
+        </div>
+        <div class="field" id="campo-parcelas" hidden>
+          <label>Quantidade de parcelas</label>
+          <input type="number" min="1" step="1" id="cm-parcelas" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-compromisso">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-compromisso">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-pendentes">
   <div class="modal modal-lg">
     <button type="button" class="modal-close" id="btn-fechar-pendentes" aria-label="Fechar">&times;</button>
@@ -335,7 +397,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=22"></script>
+<script type="module" src="js/app.js?v=23"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
