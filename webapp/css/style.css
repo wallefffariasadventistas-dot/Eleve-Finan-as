@@ -150,13 +150,16 @@ tbody tr:hover td { background: var(--surface2); }
 .field label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; margin-bottom: 14px; }
 .form-grid.wide { grid-template-columns: 1fr; }
-input, select, textarea {
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
   font-family: 'Inter', sans-serif; font-size: 14px; padding: 10px 12px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
   background: var(--surface2); color: var(--text); outline: none; width: 100%;
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 textarea { min-height: 64px; resize: vertical; }
+input[type="checkbox"], input[type="radio"] {
+  width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0;
+}
 .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
 
 .btn {
