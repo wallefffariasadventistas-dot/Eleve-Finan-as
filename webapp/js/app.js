@@ -230,8 +230,8 @@ function renderDashboard() {
   document.getElementById("metric-pendente-reembolso").addEventListener("click", abrirModalPendentes);
 
   const recentes = state.despesas.slice(0, 8);
-  document.querySelector("#dashboard-recent tbody").innerHTML = recentes.map(linhaDespesaSimples).join("") ||
-    `<tr><td colspan="6">Nenhum lançamento ainda.</td></tr>`;
+  document.getElementById("dashboard-recent").innerHTML = recentes.map(linhaDespesaResumida).join("") ||
+    `<p class="page-subtitle" style="padding: 18px;">Nenhum lançamento ainda.</p>`;
 
   if (modalPendentes.classList.contains("show")) renderPendentesModal();
 }
@@ -269,6 +269,22 @@ function linhaDespesaSimples(d) {
     <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${formatarMoedaExibicao((d.valor ?? 0))}</td>
     <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
   </tr>`;
+}
+
+// Versão enxuta usada só nos "Últimos lançamentos" do Dashboard — sem tabela nem
+// botões de ação, só o essencial pra dar uma visão geral rápida e limpa.
+function linhaDespesaResumida(d) {
+  const meta = [CATEGORIA_LABEL[d.categoria] ?? d.categoria, d.data].filter(Boolean).join(" · ");
+  const icone = ICON_SVG[d.tipoDespesa] ?? ICON_SVG.cifrao;
+  return `
+    <div class="lancamento-linha">
+      <span class="icon-badge">${icone}</span>
+      <div class="lancamento-info">
+        <div class="lancamento-desc">${d.descricao || "—"}</div>
+        <div class="lancamento-meta">${meta}</div>
+      </div>
+      <div class="lancamento-valor ${classeValorStatus(d.statusReembolso)}">R$ ${formatarMoedaExibicao(d.valor ?? 0)}</div>
+    </div>`;
 }
 
 // ---------- AÇÕES COMPARTILHADAS (ver recibo / editar / excluir) ----------
