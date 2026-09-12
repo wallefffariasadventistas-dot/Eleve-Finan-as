@@ -153,16 +153,7 @@
         <button class="btn btn-sm" id="btn-pdf-pessoal">Baixar PDF</button>
         <button class="btn btn-sm" id="btn-comprovantes-pessoal">Baixar comprovantes (.zip)</button>
       </div>
-      <div class="card">
-        <div class="table-wrap">
-          <table id="tabela-pessoal">
-            <thead>
-              <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Origem</th><th>Valor</th><th></th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+      <div id="lista-pessoal" class="despesas-lista"></div>
     </section>
 
     <section id="section-compromissos" class="section">
@@ -179,16 +170,7 @@
         <input type="month" id="compromissos-mes" />
       </div>
       <div id="compromissos-metrics" class="metrics"></div>
-      <div class="card">
-        <div class="table-wrap">
-          <table id="tabela-compromissos">
-            <thead>
-              <tr><th>Compromisso</th><th>Parcela</th><th>Valor</th><th></th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+      <div id="lista-compromissos" class="despesas-lista"></div>
     </section>
 
     <section id="section-fixo" class="section">
@@ -454,7 +436,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=30"></script>
+<script type="module" src="js/app.js?v=31"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

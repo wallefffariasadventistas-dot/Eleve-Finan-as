@@ -27,6 +27,8 @@ const state = {
   compromissos: [], editandoCompromissoId: null,
   subvencoes: [], editandoSubvencaoId: null,
   departamentoExpandido: new Set(),
+  pessoalExpandido: new Set(),
+  compromissosExpandido: new Set(),
 };
 
 const CATEGORIA_LABEL = {
@@ -412,17 +414,32 @@ document.getElementById("filtro-status-departamento").addEventListener("change",
 function renderPessoal() {
   const filtradas = state.despesas.filter((d) => d.tipoDespesa === "pessoal");
 
-  document.querySelector("#tabela-pessoal tbody").innerHTML = filtradas.map((d) => `
-    <tr>
-      <td data-label="Data">${d.data ?? "—"}</td>
-      <td data-label="Descrição">${d.descricao ?? ""}</td>
-      <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
-      <td data-label="Origem">${d.origem ?? ""}</td>
-      <td data-label="Valor" class="td-mono">R$ ${formatarMoedaExibicao((d.valor ?? 0))}</td>
-      <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
-    </tr>
-  `).join("") || `<tr><td colspan="6">Nenhuma despesa pessoal lançada ainda.</td></tr>`;
+  document.getElementById("lista-pessoal").innerHTML = filtradas.map((d) => {
+    const meta = [CATEGORIA_LABEL[d.categoria] ?? d.categoria, d.data].filter(Boolean).join(" · ");
+    return `
+      <div class="despesa-card">
+        <div class="despesa-card-header" data-toggle-despesa="${d.id}">
+          <span class="icon-badge">${ICON_SVG.pessoal}</span>
+          <div class="despesa-card-info">
+            <div class="despesa-card-desc">${d.descricao || "—"}</div>
+            <div class="despesa-card-meta">${meta}</div>
+          </div>
+          <div class="despesa-card-valor">R$ ${formatarMoedaExibicao(d.valor ?? 0)}</div>
+        </div>
+        <div class="despesa-card-body${state.pessoalExpandido.has(d.id) ? " open" : ""}" id="pessoal-body-${d.id}">
+          <div class="despesa-card-detalhe"><span>Origem</span><span>${d.origem ?? "—"}</span></div>
+          <div class="row-actions">${botoesAcaoDespesa(d)}</div>
+        </div>
+      </div>`;
+  }).join("") || `<p class="page-subtitle" style="padding: 18px;">Nenhuma despesa pessoal lançada ainda.</p>`;
 
+  document.querySelectorAll("#lista-pessoal [data-toggle-despesa]").forEach((header) => {
+    header.addEventListener("click", () => {
+      const id = header.dataset.toggleDespesa;
+      state.pessoalExpandido.has(id) ? state.pessoalExpandido.delete(id) : state.pessoalExpandido.add(id);
+      document.getElementById(`pessoal-body-${id}`).classList.toggle("open");
+    });
+  });
 }
 
 // ---------- MODAL DESPESA (lançamento manual) ----------
@@ -1113,23 +1130,41 @@ function renderCompromissos() {
     <div class="metric-card"><div class="metric-label">Subtotal (compromissos + pessoal)</div><div class="metric-value green">R$ ${formatarMoedaExibicao(subtotal)}</div></div>
   `;
 
-  document.querySelector("#tabela-compromissos tbody").innerHTML = ativos.map((c) => `
-    <tr>
-      <td data-label="Compromisso">${c.nome}</td>
-      <td data-label="Parcela">${c.parcelas != null ? `${numeroDaParcela(c, mesSelecionado)} de ${c.parcelas}` : "Recorrente"}</td>
-      <td data-label="Valor" class="td-mono">R$ ${formatarMoedaExibicao((c.valor ?? 0))}</td>
-      <td data-label="Ações">${botoesAcaoCompromisso(c)}</td>
-    </tr>
-  `).join("") || `<tr><td colspan="4">Nenhum compromisso neste mês.</td></tr>`;
+  document.getElementById("lista-compromissos").innerHTML = ativos.map((c) => {
+    const meta = c.parcelas != null ? `${numeroDaParcela(c, mesSelecionado)} de ${c.parcelas}` : "Recorrente";
+    return `
+      <div class="despesa-card">
+        <div class="despesa-card-header" data-toggle-compromisso="${c.id}">
+          <span class="icon-badge">${ICON_SVG.carteira}</span>
+          <div class="despesa-card-info">
+            <div class="despesa-card-desc">${c.nome}</div>
+            <div class="despesa-card-meta">${meta}</div>
+          </div>
+          <div class="despesa-card-valor">R$ ${formatarMoedaExibicao(c.valor ?? 0)}</div>
+        </div>
+        <div class="despesa-card-body${state.compromissosExpandido.has(c.id) ? " open" : ""}" id="compromisso-body-${c.id}">
+          <div class="row-actions">${botoesAcaoCompromisso(c)}</div>
+        </div>
+      </div>`;
+  }).join("") || `<p class="page-subtitle" style="padding: 18px;">Nenhum compromisso neste mês.</p>`;
 
-  document.querySelectorAll("#tabela-compromissos [data-editar-compromisso]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  document.querySelectorAll("#lista-compromissos [data-toggle-compromisso]").forEach((header) => {
+    header.addEventListener("click", () => {
+      const id = header.dataset.toggleCompromisso;
+      state.compromissosExpandido.has(id) ? state.compromissosExpandido.delete(id) : state.compromissosExpandido.add(id);
+      document.getElementById(`compromisso-body-${id}`).classList.toggle("open");
+    });
+  });
+  document.querySelectorAll("#lista-compromissos [data-editar-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
       const c = state.compromissos.find((x) => x.id === btn.dataset.editarCompromisso);
       if (c) abrirModalCompromissoEdicao(c);
     });
   });
-  document.querySelectorAll("#tabela-compromissos [data-excluir-compromisso]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+  document.querySelectorAll("#lista-compromissos [data-excluir-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
       if (!confirm("Excluir este compromisso mensal? Essa ação não pode ser desfeita.")) return;
       try {
         await deleteDoc(doc(db, "compromissosMensais", btn.dataset.excluirCompromisso));
