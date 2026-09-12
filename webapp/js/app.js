@@ -285,6 +285,9 @@ document.getElementById("btn-cancelar-despesa").addEventListener("click", () => 
   state.editandoDespesaId = null;
   modalDespesa.classList.remove("show");
 });
+document.getElementById("btn-fechar-despesa").addEventListener("click", () => {
+  document.getElementById("btn-cancelar-despesa").click();
+});
 document.getElementById("d-tipo").addEventListener("change", toggleCampoRelatorio);
 
 function toggleCampoRelatorio() {
@@ -368,6 +371,9 @@ document.getElementById("btn-novo-relatorio").addEventListener("click", () => {
   modalRelatorio.classList.add("show");
 });
 document.getElementById("btn-cancelar-relatorio").addEventListener("click", () => modalRelatorio.classList.remove("show"));
+document.getElementById("btn-fechar-relatorio").addEventListener("click", () => {
+  document.getElementById("btn-cancelar-relatorio").click();
+});
 document.getElementById("form-relatorio").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btnSalvar = document.getElementById("btn-salvar-relatorio");
@@ -390,6 +396,18 @@ document.getElementById("form-relatorio").addEventListener("submit", async (e) =
     btnSalvar.disabled = false;
     btnSalvar.textContent = "Criar";
   }
+});
+
+// Fecha ao clicar fora da caixa (no fundo escurecido) ou apertando Esc
+[modalDespesa, modalRelatorio].forEach((overlay) => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.querySelector(".modal-close").click();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (modalDespesa.classList.contains("show")) document.getElementById("btn-fechar-despesa").click();
+  else if (modalRelatorio.classList.contains("show")) document.getElementById("btn-fechar-relatorio").click();
 });
 
 // ---------- RELATÓRIOS DE VIAGEM ----------

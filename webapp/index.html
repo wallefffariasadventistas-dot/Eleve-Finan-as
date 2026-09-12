@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=11" />
+<link rel="stylesheet" href="css/style.css?v=12" />
 </head>
 <body>
 
@@ -194,6 +194,7 @@
 
 <div class="modal-overlay" id="modal-despesa">
   <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-despesa" aria-label="Fechar">&times;</button>
     <p class="modal-eyebrow" id="modal-despesa-eyebrow">Lançamento manual</p>
     <h2 id="modal-despesa-titulo">Nova despesa</h2>
     <form id="form-despesa">
@@ -240,6 +241,7 @@
 
 <div class="modal-overlay" id="modal-relatorio">
   <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-relatorio" aria-label="Fechar">&times;</button>
     <p class="modal-eyebrow">Viagem</p>
     <h2>Novo relatório de viagem</h2>
     <form id="form-relatorio">
@@ -263,7 +265,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=11"></script>
+<script type="module" src="js/app.js?v=12"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
