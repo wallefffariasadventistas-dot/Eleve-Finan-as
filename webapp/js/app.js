@@ -64,6 +64,28 @@ function mesAtualISO() {
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// ---------- MÁSCARA DE MOEDA (R$ 1.234,56) ----------
+// Formata a partir dos dígitos digitados (os 2 últimos viram centavos), igual a um
+// campo de valor de banco/maquininha — sem depender do separador decimal do navegador.
+function formatarValorMoeda(valorOuDigitos) {
+  const digitos = String(valorOuDigitos ?? "").replace(/\D/g, "");
+  if (!digitos) return "";
+  return (Number(digitos) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function preencherCampoMoeda(id, numero) {
+  document.getElementById(id).value = numero == null ? "" : formatarValorMoeda(Math.round(numero * 100));
+}
+function lerCampoMoeda(id) {
+  const bruto = document.getElementById(id).value.replace(/\./g, "").replace(",", ".").trim();
+  return bruto === "" ? null : Number(bruto);
+}
+document.querySelectorAll(".input-moeda").forEach((input) => {
+  input.addEventListener("input", () => {
+    input.value = formatarValorMoeda(input.value);
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+});
+
 // Despesa de viagem cujo relatório já foi marcado como "Pago" já foi reembolsada junto com
 // o relatório, mesmo que o campo statusReembolso da despesa em si ainda diga "pendente".
 function estaPendenteDeReembolso(d) {
@@ -396,7 +418,7 @@ function abrirModalDespesaEdicao(d) {
   document.getElementById("modal-despesa-titulo").textContent = "Editar despesa";
   document.getElementById("btn-salvar-despesa").textContent = "Salvar alterações";
   document.getElementById("d-data").value = d.data ?? "";
-  document.getElementById("d-valor").value = d.valor ?? "";
+  preencherCampoMoeda("d-valor", d.valor);
   document.getElementById("d-categoria").value = d.categoria ?? "outros";
   document.getElementById("d-tipo").value = d.tipoDespesa ?? "pessoal";
   document.getElementById("d-descricao").value = d.descricao ?? "";
@@ -456,7 +478,7 @@ document.getElementById("form-despesa").addEventListener("submit", async (e) => 
 
   const payload = {
     data: document.getElementById("d-data").value,
-    valor: Number(document.getElementById("d-valor").value),
+    valor: lerCampoMoeda("d-valor"),
     categoria: document.getElementById("d-categoria").value,
     tipoDespesa,
     descricao: document.getElementById("d-descricao").value,
@@ -865,7 +887,7 @@ function abrirModalNotaFixaEdicao(n) {
   document.getElementById("btn-salvar-nota-fixa").textContent = "Salvar alterações";
   document.getElementById("nf-arquivo-atual").hidden = !n.comprovanteStoragePath;
   document.getElementById("nf-data").value = n.data ?? "";
-  document.getElementById("nf-valor").value = n.valor ?? "";
+  preencherCampoMoeda("nf-valor", n.valor);
   document.getElementById("nf-descricao").value = n.descricao ?? "";
   modalNotaFixa.classList.add("show");
 }
@@ -897,7 +919,7 @@ document.getElementById("btn-detectar-valor").addEventListener("click", async ()
   try {
     const base64 = await arquivoParaBase64(arquivo);
     const { data } = await extrairValorNota({ base64, mimeType: arquivo.type });
-    if (data.valor != null) document.getElementById("nf-valor").value = data.valor;
+    if (data.valor != null) preencherCampoMoeda("nf-valor", data.valor);
     if (data.data) document.getElementById("nf-data").value = data.data;
     if (!document.getElementById("nf-descricao").value && (data.estabelecimento || data.descricao)) {
       document.getElementById("nf-descricao").value = data.estabelecimento || data.descricao;
@@ -930,11 +952,10 @@ document.getElementById("form-nota-fixa").addEventListener("submit", async (e) =
   btnSalvar.disabled = true;
   btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
   try {
-    const valorTexto = document.getElementById("nf-valor").value;
     const payload = {
       relatorioFixoId: state.notaFixaRelatorioAtual,
       data: document.getElementById("nf-data").value,
-      valor: valorTexto === "" ? null : Number(valorTexto),
+      valor: lerCampoMoeda("nf-valor"),
       descricao: document.getElementById("nf-descricao").value || null,
       atualizadoEm: serverTimestamp(),
     };
@@ -1107,7 +1128,7 @@ function abrirModalCompromissoEdicao(c) {
   document.getElementById("modal-compromisso-titulo").textContent = "Editar compromisso mensal";
   document.getElementById("btn-salvar-compromisso").textContent = "Salvar alterações";
   document.getElementById("cm-nome").value = c.nome ?? "";
-  document.getElementById("cm-valor").value = c.valor ?? "";
+  preencherCampoMoeda("cm-valor", c.valor);
   document.getElementById("cm-mes-inicio").value = c.mesInicio ?? mesAtualISO();
   document.getElementById("cm-tipo-parcelas").value = c.parcelas != null ? "parcelado" : "recorrente";
   document.getElementById("cm-parcelas").value = c.parcelas ?? "";
@@ -1133,7 +1154,7 @@ document.getElementById("form-compromisso").addEventListener("submit", async (e)
     const tipoParcelas = document.getElementById("cm-tipo-parcelas").value;
     const payload = {
       nome: document.getElementById("cm-nome").value,
-      valor: Number(document.getElementById("cm-valor").value),
+      valor: lerCampoMoeda("cm-valor"),
       mesInicio: document.getElementById("cm-mes-inicio").value,
       parcelas: tipoParcelas === "parcelado" ? Number(document.getElementById("cm-parcelas").value) : null,
     };
@@ -1245,7 +1266,7 @@ function abrirModalSubvencaoEdicao(s) {
   document.getElementById("modal-subvencao-titulo").textContent = "Editar subvenção";
   document.getElementById("btn-salvar-subvencao").textContent = "Salvar alterações";
   document.getElementById("sv-origem").value = s.origem ?? "uniao";
-  document.getElementById("sv-valor").value = s.valor ?? "";
+  preencherCampoMoeda("sv-valor", s.valor);
   document.getElementById("sv-status").value = s.status ?? "pendente";
   document.getElementById("sv-observacao").value = s.observacao ?? "";
   modalSubvencao.classList.add("show");
@@ -1268,7 +1289,7 @@ document.getElementById("form-subvencao").addEventListener("submit", async (e) =
   try {
     const payload = {
       origem: document.getElementById("sv-origem").value,
-      valor: Number(document.getElementById("sv-valor").value),
+      valor: lerCampoMoeda("sv-valor"),
       status: document.getElementById("sv-status").value,
       observacao: document.getElementById("sv-observacao").value,
     };
