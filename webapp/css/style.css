@@ -1,5 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Garante que o atributo "hidden" sempre esconda o elemento, mesmo quando ele
+   também tem uma classe (ex: .field, .shell) que define display:flex/grid —
+   sem isso, empatam em especificidade e o elemento fica visível por engano. */
+[hidden] { display: none !important; }
+
 :root {
   /* ── ELEVE — identidade própria: fundo escuro premium, acento esmeralda/violeta ── */
   --bg: #0A0C11;
