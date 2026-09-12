@@ -77,9 +77,9 @@ nav {
 }
 .nav-brand { padding: 22px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 11px; }
 .nav-monogram {
-  width: 34px; height: 34px; border-radius: 10px;
+  width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 11px;
   background: var(--gradient-brand); color: #06110D; flex-shrink: 0;
 }
 .nav-brand h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
@@ -221,6 +221,7 @@ textarea { min-height: 64px; resize: vertical; }
     border-bottom: 1px solid var(--border);
   }
   .nav-brand p { display: none; }
+  .nav-monogram { display: none; }
   .nav-items { display: flex; flex-direction: row; overflow-x: auto; padding: 8px; min-width: 0; }
   .nav-item { white-space: nowrap; }
   .logout-btn { display: none; }
