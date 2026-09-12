@@ -98,16 +98,6 @@ nav {
 .logout-btn:hover { color: var(--text); border-color: var(--border-accent); }
 main { margin-left: 240px; flex: 1; padding: 28px 32px; max-width: 1120px; }
 
-.fullscreen-btn {
-  position: fixed; top: 12px; right: 12px; z-index: 1000;
-  width: 36px; height: 36px; border-radius: 9px;
-  background: var(--surface2); border: 1px solid var(--border-strong); color: var(--text2);
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-  box-shadow: var(--shadow-sm);
-}
-.fullscreen-btn:hover { color: var(--text); border-color: var(--border-accent); }
-.fullscreen-btn.is-fullscreen { color: var(--accent); border-color: var(--border-accent); }
-
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
 .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; }
 .page-eyebrow { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 3px; }

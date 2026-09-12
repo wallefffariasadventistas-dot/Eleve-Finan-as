@@ -17,15 +17,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=12" />
+<link rel="stylesheet" href="css/style.css?v=13" />
 </head>
 <body>
-
-<button id="btn-fullscreen" class="fullscreen-btn" title="Tela cheia" hidden>
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/>
-  </svg>
-</button>
 
 <div id="login-screen" class="login-screen">
   <div class="login-box">
@@ -265,30 +259,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=12"></script>
+<script type="module" src="js/app.js?v=13"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-  }
-
-  const btnFullscreen = document.getElementById("btn-fullscreen");
-  if (document.documentElement.requestFullscreen) {
-    btnFullscreen.hidden = false;
-    btnFullscreen.addEventListener("click", () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {
-          const t = document.getElementById("toast");
-          t.textContent = "Não foi possível entrar em tela cheia neste navegador.";
-          t.className = "toast show error";
-          setTimeout(() => (t.className = "toast"), 3200);
-        });
-      } else {
-        document.exitFullscreen();
-      }
-    });
-    document.addEventListener("fullscreenchange", () => {
-      btnFullscreen.classList.toggle("is-fullscreen", !!document.fullscreenElement);
-    });
   }
 </script>
 </body>
