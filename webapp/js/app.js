@@ -34,6 +34,11 @@ const STATUS_LABEL = {
 };
 const STATUS_RELATORIO_LABEL = { aberto: "Aberto", enviado: "Enviado", pago: "Pago" };
 const STATUS_RELATORIO_BADGE = { aberto: "badge-pendente", enviado: "badge-enviado", pago: "badge-reembolsado" };
+const GRUPOS_TIPO_DESPESA = [
+  { titulo: "Viagem", tipo: "viagem" },
+  { titulo: "Departamento", tipo: "departamento" },
+  { titulo: "Pessoal", tipo: "pessoal" },
+];
 
 function calcularReembolsavel(tipo) { return tipo === "viagem" || tipo === "departamento"; }
 
@@ -117,16 +122,47 @@ function renderDashboard() {
 
   document.getElementById("dashboard-metrics").innerHTML = `
     <div class="metric-card"><div class="metric-label">Gasto no mês</div><div class="metric-value">R$ ${totalMes.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Pendente de reembolso</div><div class="metric-value amber">R$ ${totalPendente.toFixed(2)}</div></div>
+    <button type="button" class="metric-card clickable" id="metric-pendente-reembolso">
+      <div class="metric-label">Pendente de reembolso</div>
+      <div class="metric-value amber">R$ ${totalPendente.toFixed(2)}</div>
+      <div class="metric-hint">Ver por área →</div>
+    </button>
     <div class="metric-card"><div class="metric-label">Viagem</div><div class="metric-value">R$ ${porTipo.viagem.toFixed(2)}</div></div>
     <div class="metric-card"><div class="metric-label">Departamento</div><div class="metric-value">R$ ${porTipo.departamento.toFixed(2)}</div></div>
     <div class="metric-card"><div class="metric-label">Pessoal</div><div class="metric-value">R$ ${porTipo.pessoal.toFixed(2)}</div></div>
   `;
+  document.getElementById("metric-pendente-reembolso").addEventListener("click", abrirModalPendentes);
 
   const recentes = state.despesas.slice(0, 8);
   document.querySelector("#dashboard-recent tbody").innerHTML = recentes.map(linhaDespesaSimples).join("") ||
     `<tr><td colspan="6">Nenhum lançamento ainda.</td></tr>`;
+
+  if (modalPendentes.classList.contains("show")) renderPendentesModal();
 }
+
+// ---------- MODAL PENDENTE DE REEMBOLSO POR ÁREA ----------
+const modalPendentes = document.getElementById("modal-pendentes");
+function renderPendentesModal() {
+  const pendentes = state.despesas.filter((d) => d.statusReembolso === "pendente");
+  document.getElementById("pendentes-conteudo").innerHTML = GRUPOS_TIPO_DESPESA.map((grupo) => {
+    const despesasGrupo = pendentes.filter((d) => d.tipoDespesa === grupo.tipo);
+    if (despesasGrupo.length === 0) return "";
+    const total = despesasGrupo.reduce((s, d) => s + (d.valor ?? 0), 0);
+    return `
+      <div class="pendentes-grupo">
+        <div class="pendentes-grupo-header">
+          <span class="pendentes-grupo-titulo">${grupo.titulo} · ${despesasGrupo.length} despesa(s)</span>
+          <span class="pendentes-grupo-total">R$ ${total.toFixed(2)}</span>
+        </div>
+        <div class="table-wrap"><table><tbody>${despesasGrupo.map(linhaDespesaSimples).join("")}</tbody></table></div>
+      </div>`;
+  }).join("") || `<p class="page-subtitle">Nenhuma despesa pendente de reembolso.</p>`;
+}
+function abrirModalPendentes() {
+  renderPendentesModal();
+  modalPendentes.classList.add("show");
+}
+document.getElementById("btn-fechar-pendentes").addEventListener("click", () => modalPendentes.classList.remove("show"));
 
 function linhaDespesaSimples(d) {
   return `<tr>
@@ -425,7 +461,7 @@ document.getElementById("form-relatorio").addEventListener("submit", async (e) =
 });
 
 // Fecha ao clicar fora da caixa (no fundo escurecido) ou apertando Esc
-[modalDespesa, modalRelatorio].forEach((overlay) => {
+[modalDespesa, modalRelatorio, modalPendentes].forEach((overlay) => {
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) overlay.querySelector(".modal-close").click();
   });
@@ -434,6 +470,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (modalDespesa.classList.contains("show")) document.getElementById("btn-fechar-despesa").click();
   else if (modalRelatorio.classList.contains("show")) document.getElementById("btn-fechar-relatorio").click();
+  else if (modalPendentes.classList.contains("show")) document.getElementById("btn-fechar-pendentes").click();
 });
 
 // ---------- RELATÓRIOS DE VIAGEM ----------
@@ -712,11 +749,7 @@ document.getElementById("btn-pdf-extrato").addEventListener("click", () => {
   if (state.despesas.length === 0) { toast("Nenhuma despesa lançada ainda.", true); return; }
   const doc = novoPdf("Extrato completo", `${state.despesas.length} lançamento(s)`);
 
-  const grupos = [
-    { titulo: "Viagem", tipo: "viagem" },
-    { titulo: "Departamento", tipo: "departamento" },
-    { titulo: "Pessoal", tipo: "pessoal" },
-  ];
+  const grupos = GRUPOS_TIPO_DESPESA;
 
   let y = 36;
   let totalGeral = 0;

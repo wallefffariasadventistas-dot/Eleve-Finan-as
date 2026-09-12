@@ -124,6 +124,15 @@ main { margin-left: 240px; flex: 1; padding: 28px 32px; max-width: 1120px; }
 .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 23px; font-weight: 600; letter-spacing: -0.5px; }
 .metric-value.amber { color: var(--amber-text); }
 .metric-value.green { color: var(--accent); }
+.metric-card.clickable {
+  cursor: pointer; text-align: left; width: 100%; font: inherit; color: inherit;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.metric-card.clickable:hover { border-color: var(--border-accent); }
+.metric-card.clickable:active { transform: scale(0.98); }
+.metric-card.clickable .metric-hint {
+  font-size: 10.5px; color: var(--text3); margin-top: 8px; display: flex; align-items: center; gap: 4px;
+}
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: 18px; overflow: hidden; }
 .card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); }
@@ -181,6 +190,14 @@ input[type="checkbox"], input[type="radio"] {
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(6,8,12,0.6); backdrop-filter: blur(3px); z-index: 500; align-items: center; justify-content: center; }
 .modal-overlay.show { display: flex; }
 .modal { background: var(--surface); border-radius: var(--radius); padding: 26px; width: 92%; max-width: 480px; box-shadow: var(--shadow-lg); border: 1px solid var(--border-strong); position: relative; }
+.modal-lg { max-width: 720px; max-height: 86vh; overflow-y: auto; }
+/* Fica abaixo dos modais de editar despesa/relatório, que podem abrir por cima dele */
+#modal-pendentes { z-index: 480; }
+.pendentes-grupo { margin-bottom: 22px; }
+.pendentes-grupo:last-child { margin-bottom: 0; }
+.pendentes-grupo-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.pendentes-grupo-titulo { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.pendentes-grupo-total { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--amber-text); }
 .modal-eyebrow { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1.2px; }
 .modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
 .modal-close {
