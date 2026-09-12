@@ -262,6 +262,20 @@ input[type="checkbox"], input[type="radio"] {
 .relatorio-body { display: none; padding: 0 18px 16px; }
 .relatorio-body.open { display: block; }
 
+/* Lista de despesas resumida (Departamento) — cada linha mostra só o essencial
+   e expande ao clicar pra ver origem/status detalhado e as ações. */
+.despesas-lista { display: flex; flex-direction: column; gap: 10px; }
+.despesa-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.despesa-card-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; }
+.despesa-card-info { flex: 1; min-width: 0; }
+.despesa-card-desc { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.despesa-card-meta { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+.despesa-card-valor { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13.5px; white-space: nowrap; flex-shrink: 0; }
+.despesa-card-body { display: none; padding: 0 16px 14px; border-top: 1px solid var(--border); margin-top: 2px; }
+.despesa-card-body.open { display: block; padding-top: 14px; }
+.despesa-card-detalhe { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text2); margin-bottom: 12px; }
+.despesa-card-detalhe span:first-child { color: var(--text3); text-transform: uppercase; font-size: 10.5px; font-weight: 600; letter-spacing: 0.5px; }
+
 .rstatus-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .rstatus-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
 .rstatus-toggle { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }

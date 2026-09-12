@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=28" />
+<link rel="stylesheet" href="css/style.css?v=29" />
 </head>
 <body>
 
@@ -138,19 +138,7 @@
         <button class="btn btn-sm" id="btn-pdf-departamento">Baixar PDF</button>
         <button class="btn btn-sm" id="btn-comprovantes-departamento">Baixar comprovantes (.zip)</button>
       </div>
-      <div class="card">
-        <div class="table-wrap">
-          <table id="tabela-departamento">
-            <thead>
-              <tr>
-                <th></th><th>Data</th><th>Descrição</th><th>Categoria</th>
-                <th>Origem</th><th>Status</th><th>Valor</th><th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+      <div id="lista-departamento" class="despesas-lista"></div>
     </section>
 
     <section id="section-pessoal" class="section">
@@ -466,7 +454,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=29"></script>
+<script type="module" src="js/app.js?v=30"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

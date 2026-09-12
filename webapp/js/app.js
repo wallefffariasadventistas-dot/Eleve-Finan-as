@@ -26,6 +26,7 @@ const state = {
   relatoriosFixosExpandidos: new Set(), notaFixaRelatorioAtual: null,
   compromissos: [], editandoCompromissoId: null,
   subvencoes: [], editandoSubvencaoId: null,
+  departamentoExpandido: new Set(),
 };
 
 const CATEGORIA_LABEL = {
@@ -370,22 +371,38 @@ function renderDepartamento() {
     d.tipoDespesa === "departamento" && (!status || d.statusReembolso === status)
   );
 
-  document.querySelector("#tabela-departamento tbody").innerHTML = filtradas.map((d) => `
-    <tr>
-      <td data-label="Selecionar"><input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} /></td>
-      <td data-label="Data">${d.data ?? "—"}</td>
-      <td data-label="Descrição">${d.descricao ?? ""}</td>
-      <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
-      <td data-label="Origem">${d.origem ?? ""}</td>
-      <td data-label="Status"><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
-      <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${formatarMoedaExibicao((d.valor ?? 0))}</td>
-      <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
-    </tr>
-  `).join("") || `<tr><td colspan="8">Nenhuma despesa de departamento lançada ainda.</td></tr>`;
+  document.getElementById("lista-departamento").innerHTML = filtradas.map((d) => {
+    const meta = [CATEGORIA_LABEL[d.categoria] ?? d.categoria, d.data].filter(Boolean).join(" · ");
+    return `
+      <div class="despesa-card">
+        <div class="despesa-card-header" data-toggle-despesa="${d.id}">
+          <input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} />
+          <span class="icon-badge">${ICON_SVG.departamento}</span>
+          <div class="despesa-card-info">
+            <div class="despesa-card-desc">${d.descricao || "—"}</div>
+            <div class="despesa-card-meta">${meta}</div>
+          </div>
+          <span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span>
+          <div class="despesa-card-valor ${classeValorStatus(d.statusReembolso)}">R$ ${formatarMoedaExibicao(d.valor ?? 0)}</div>
+        </div>
+        <div class="despesa-card-body${state.departamentoExpandido.has(d.id) ? " open" : ""}" id="despesa-body-${d.id}">
+          <div class="despesa-card-detalhe"><span>Origem</span><span>${d.origem ?? "—"}</span></div>
+          <div class="row-actions">${botoesAcaoDespesa(d)}</div>
+        </div>
+      </div>`;
+  }).join("") || `<p class="page-subtitle" style="padding: 18px;">Nenhuma despesa de departamento lançada ainda.</p>`;
 
-  document.querySelectorAll("#tabela-departamento .chk-despesa").forEach((chk) => {
+  document.querySelectorAll("#lista-departamento .chk-despesa").forEach((chk) => {
+    chk.addEventListener("click", (e) => e.stopPropagation());
     chk.addEventListener("change", () => {
       chk.checked ? state.selecionadas.add(chk.dataset.id) : state.selecionadas.delete(chk.dataset.id);
+    });
+  });
+  document.querySelectorAll("#lista-departamento [data-toggle-despesa]").forEach((header) => {
+    header.addEventListener("click", () => {
+      const id = header.dataset.toggleDespesa;
+      state.departamentoExpandido.has(id) ? state.departamentoExpandido.delete(id) : state.departamentoExpandido.add(id);
+      document.getElementById(`despesa-body-${id}`).classList.toggle("open");
     });
   });
 }
