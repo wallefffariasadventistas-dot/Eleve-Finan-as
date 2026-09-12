@@ -434,6 +434,7 @@ function renderRelatorios() {
           <table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table>
           <div class="form-actions">
             <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
+            <button class="btn btn-sm" data-comprovantes-relatorio="${r.id}">Baixar comprovantes (.zip)</button>
             <button class="btn btn-sm btn-danger" data-excluir-relatorio="${r.id}">Excluir relatório</button>
           </div>
         </div>
@@ -462,6 +463,15 @@ function renderRelatorios() {
       if (relatorio) baixarPdfRelatorio(relatorio);
     });
   });
+  document.querySelectorAll("[data-comprovantes-relatorio]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorioId = btn.dataset.comprovantesRelatorio;
+      const relatorio = state.relatorios.find((r) => r.id === relatorioId);
+      const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === relatorioId);
+      baixarComprovantesZip(despesasDoRelatorio, `comprovantes-${relatorio?.nome ?? relatorioId}`);
+    });
+  });
   document.querySelectorAll("[data-excluir-relatorio]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -484,9 +494,39 @@ function renderRelatorios() {
 
 // ---------- REEMBOLSO ----------
 const enviarParaReembolso = httpsCallable(functions, "enviarParaReembolso");
+const baixarComprovantesZipCallable = httpsCallable(functions, "baixarComprovantesZip");
+
+async function baixarComprovantesZip(despesas, nomeBase) {
+  const comComprovante = despesas.filter((d) => d.comprovanteStoragePath);
+  if (comComprovante.length === 0) {
+    toast("Nenhum comprovante anexado nessas despesas.", true);
+    return;
+  }
+  toast(`Preparando ${comComprovante.length} comprovante(s)...`);
+  try {
+    const { data } = await baixarComprovantesZipCallable({
+      storagePaths: comComprovante.map((d) => d.comprovanteStoragePath),
+    });
+    const binario = atob(data.base64);
+    const bytes = new Uint8Array(binario.length);
+    for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+    const blob = new Blob([bytes], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo(nomeBase, "zip");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast(`${data.total} comprovante(s) baixado(s).`);
+  } catch (err) {
+    toast("Erro ao baixar comprovantes: " + err.message, true);
+  }
+}
 
 document.querySelectorAll("#section-reembolso [data-canal]").forEach((btn) => {
-  btn.addEventListener("click", () => acionarReembolso(btn.dataset.canal));
+  btn.addEventListener("click", () => acionarReembolso(btn.dataset.canal, { tipoDespesa: "departamento" }));
 });
 
 document.getElementById("btn-enviar-reembolso-departamento").addEventListener("click", () => {
@@ -570,8 +610,8 @@ function tabelaDespesasPdf(doc, despesas, startY, omitirTipo) {
   return total;
 }
 
-function nomeArquivo(base) {
-  return base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "_") + ".pdf";
+function nomeArquivo(base, extensao = "pdf") {
+  return base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "_") + "." + extensao;
 }
 
 function baixarPdfRelatorio(relatorio) {
@@ -597,12 +637,23 @@ document.getElementById("btn-pdf-departamento").addEventListener("click", () => 
   doc.save(nomeArquivo("eleve-despesas-departamento"));
 });
 
+document.getElementById("btn-comprovantes-departamento").addEventListener("click", () => {
+  const status = document.getElementById("filtro-status-departamento").value;
+  const filtradas = state.despesas.filter((d) => d.tipoDespesa === "departamento" && (!status || d.statusReembolso === status));
+  baixarComprovantesZip(filtradas, "eleve-comprovantes-departamento");
+});
+
 document.getElementById("btn-pdf-pessoal").addEventListener("click", () => {
   const filtradas = state.despesas.filter((d) => d.tipoDespesa === "pessoal");
   if (filtradas.length === 0) { toast("Nenhuma despesa pessoal para exportar.", true); return; }
   const doc = novoPdf("Despesas Pessoais", `${filtradas.length} lançamento(s)`);
   tabelaDespesasPdf(doc, filtradas);
   doc.save(nomeArquivo("eleve-despesas-pessoais"));
+});
+
+document.getElementById("btn-comprovantes-pessoal").addEventListener("click", () => {
+  const filtradas = state.despesas.filter((d) => d.tipoDespesa === "pessoal");
+  baixarComprovantesZip(filtradas, "eleve-comprovantes-pessoais");
 });
 
 document.getElementById("btn-pdf-extrato").addEventListener("click", () => {
@@ -651,9 +702,14 @@ document.getElementById("btn-pdf-extrato").addEventListener("click", () => {
 });
 
 document.getElementById("btn-pdf-reembolso").addEventListener("click", () => {
-  const pendentes = state.despesas.filter((d) => d.statusReembolso === "pendente");
-  if (pendentes.length === 0) { toast("Nenhuma despesa pendente de reembolso.", true); return; }
-  const doc = novoPdf("Pacote de reembolso", `${pendentes.length} despesa(s) pendente(s)`);
-  tabelaDespesasPdf(doc, pendentes);
-  doc.save(nomeArquivo("eleve-reembolso"));
+  const pendentes = state.despesas.filter((d) => d.tipoDespesa === "departamento" && d.statusReembolso === "pendente");
+  if (pendentes.length === 0) { toast("Nenhuma despesa de departamento pendente de reembolso.", true); return; }
+  const doc = novoPdf("Pacote de reembolso — Departamento", `${pendentes.length} despesa(s) pendente(s)`);
+  tabelaDespesasPdf(doc, pendentes, undefined, true);
+  doc.save(nomeArquivo("eleve-reembolso-departamento"));
+});
+
+document.getElementById("btn-comprovantes-reembolso").addEventListener("click", () => {
+  const pendentes = state.despesas.filter((d) => d.tipoDespesa === "departamento" && d.statusReembolso === "pendente");
+  baixarComprovantesZip(pendentes, "eleve-comprovantes-reembolso-departamento");
 });

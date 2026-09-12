@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=10" />
+<link rel="stylesheet" href="css/style.css?v=11" />
 </head>
 <body>
 
@@ -129,6 +129,7 @@
         <button class="btn btn-sm" id="btn-enviar-reembolso-departamento">Enviar selecionadas para reembolso</button>
         <button class="btn btn-sm btn-primary" id="btn-enviar-tudo-departamento">Enviar tudo pendente para reembolso</button>
         <button class="btn btn-sm" id="btn-pdf-departamento">Baixar PDF</button>
+        <button class="btn btn-sm" id="btn-comprovantes-departamento">Baixar comprovantes (.zip)</button>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -155,6 +156,7 @@
       </header>
       <div class="filter-bar">
         <button class="btn btn-sm" id="btn-pdf-pessoal">Baixar PDF</button>
+        <button class="btn btn-sm" id="btn-comprovantes-pessoal">Baixar comprovantes (.zip)</button>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -171,17 +173,18 @@
     <section id="section-reembolso" class="section">
       <header class="page-header">
         <div>
-          <p class="page-eyebrow">Reembolso</p>
+          <p class="page-eyebrow">Reembolso · Departamento</p>
           <h2 class="page-title">Enviar para reembolso</h2>
         </div>
       </header>
       <div class="card">
         <div class="card-body">
-          <p class="page-subtitle">Envie todas as despesas pendentes (viagem + departamento) de uma vez, por e-mail ou WhatsApp, para quem processa o reembolso.</p>
+          <p class="page-subtitle">Envie as despesas de departamento pendentes de uma vez, por e-mail ou WhatsApp, para quem processa o reembolso. Despesas de viagem não são enviadas por aqui — baixe o PDF e os comprovantes direto na área de Relatórios de Viagem.</p>
           <div class="form-actions" style="justify-content:flex-start; margin-top: 18px;">
             <button class="btn btn-primary" data-canal="email">Enviar tudo por e-mail</button>
             <button class="btn" data-canal="whatsapp">Enviar tudo por WhatsApp</button>
             <button class="btn" id="btn-pdf-reembolso">Baixar PDF do pacote</button>
+            <button class="btn" id="btn-comprovantes-reembolso">Baixar comprovantes (.zip)</button>
           </div>
         </div>
       </div>
@@ -260,7 +263,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=10"></script>
+<script type="module" src="js/app.js?v=11"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
