@@ -34,6 +34,8 @@
   --amber-bg: rgba(251,191,36,0.14);  --amber-text: #FBBF24;
   --red-bg:   rgba(248,113,113,0.14); --red-text:   #F87171;
   --blue-bg:  rgba(96,165,250,0.14);  --blue-text:  #7CB4FB;
+  --pink-bg:  rgba(244,114,182,0.14); --pink-text:  #F472B6;
+  --cyan-bg:  rgba(45,212,191,0.14);  --cyan-text:  #2DD4BF;
 
   --radius: 14px;
   --radius-sm: 8px;
@@ -111,6 +113,34 @@ main { margin-left: 240px; flex: 1; padding: 28px 32px; max-width: 1120px; }
 .section { display: none; }
 .section.active { display: block; }
 
+/* Card de destaque em gradiente — resumo principal, mais "vida" que os cards planos */
+.hero-balance {
+  background: var(--gradient-brand); border-radius: var(--radius); padding: 22px 24px;
+  margin-bottom: 16px; position: relative; overflow: hidden; box-shadow: var(--shadow-md);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.hero-balance::before {
+  content: ''; position: absolute; top: -50px; right: -30px; width: 170px; height: 170px;
+  background: rgba(255,255,255,0.14); border-radius: 50%;
+}
+.hero-balance::after {
+  content: ''; position: absolute; bottom: -60px; left: 10%; width: 130px; height: 130px;
+  background: rgba(6,17,13,0.08); border-radius: 50%;
+}
+.hero-balance-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  color: rgba(6,17,13,0.62); position: relative;
+}
+.hero-balance-value {
+  font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700;
+  color: #06110D; margin-top: 6px; position: relative; letter-spacing: -0.6px;
+}
+.hero-balance-icon {
+  width: 46px; height: 46px; border-radius: 50%; background: rgba(6,17,13,0.14);
+  display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0;
+}
+.hero-balance-icon svg { width: 22px; height: 22px; color: #06110D; }
+
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; margin-bottom: 24px; }
 .metric-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -133,6 +163,33 @@ main { margin-left: 240px; flex: 1; padding: 28px 32px; max-width: 1120px; }
 .metric-card.clickable .metric-hint {
   font-size: 10.5px; color: var(--text3); margin-top: 8px; display: flex; align-items: center; gap: 4px;
 }
+
+/* Ícone colorido por área/origem — dá "vida" aos cards e linhas de tabela */
+.metric-icon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.metric-icon-row .metric-label { margin-bottom: 0; }
+.icon-badge {
+  width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.icon-badge svg { width: 15px; height: 15px; }
+.icon-badge.icon-viagem     { background: var(--violet-soft); color: var(--violet); }
+.icon-badge.icon-departamento { background: var(--blue-bg);    color: var(--blue-text); }
+.icon-badge.icon-pessoal    { background: var(--pink-bg);    color: var(--pink-text); }
+.icon-badge.icon-uniao      { background: var(--blue-bg);    color: var(--blue-text); }
+.icon-badge.icon-campo      { background: var(--accent-soft); color: var(--accent); }
+.icon-badge.icon-projetos   { background: var(--violet-soft); color: var(--violet); }
+.metric-card.tipo-viagem .metric-value       { color: var(--violet); }
+.metric-card.tipo-departamento .metric-value { color: var(--blue-text); }
+.metric-card.tipo-pessoal .metric-value      { color: var(--pink-text); }
+
+/* Cor do valor conforme o status — pendente/enviado/recebido ficam visualmente distintos */
+.valor-pendente { color: var(--amber-text) !important; }
+.valor-enviado { color: var(--blue-text) !important; }
+.valor-recebido { color: var(--accent) !important; }
+
+.row-origem { display: inline-flex; align-items: center; gap: 8px; }
+.row-origem .icon-badge { width: 24px; height: 24px; border-radius: 7px; }
+.row-origem .icon-badge svg { width: 12px; height: 12px; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: 18px; overflow: hidden; }
 .card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); }

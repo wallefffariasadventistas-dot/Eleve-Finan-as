@@ -36,6 +36,9 @@ const CATEGORIA_LABEL = {
 const STATUS_LABEL = {
   pendente: "Pendente", enviado: "Enviado", reembolsado: "Reembolsado", nao_reembolsavel: "—",
 };
+// Classe de cor pro valor em R$ conforme o status — mesma leitura rápida do badge, só que no número.
+const CLASSE_VALOR_STATUS = { pendente: "valor-pendente", enviado: "valor-enviado", reembolsado: "valor-recebido" };
+function classeValorStatus(status) { return CLASSE_VALOR_STATUS[status] ?? ""; }
 const STATUS_RELATORIO_LABEL = { aberto: "Aberto", enviado: "Enviado", pago: "Pago" };
 const STATUS_RELATORIO_BADGE = { aberto: "badge-pendente", enviado: "badge-enviado", pago: "badge-reembolsado" };
 const GRUPOS_TIPO_DESPESA = [
@@ -43,6 +46,13 @@ const GRUPOS_TIPO_DESPESA = [
   { titulo: "Departamento", tipo: "departamento" },
   { titulo: "Pessoal", tipo: "pessoal" },
 ];
+const ICON_SVG = {
+  viagem: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
+  departamento: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
+  pessoal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>`,
+  carteira: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-6"/><path d="M18 12a2 2 0 0 0 0 4h3v-4Z"/></svg>`,
+  cifrao: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+};
 const ORIGEM_SUBVENCAO_LABEL = { uniao: "União", campo: "Campo", projetos: "Projetos" };
 const STATUS_SUBVENCAO_LABEL = { pendente: "Pendente", recebida: "Recebida" };
 const STATUS_SUBVENCAO_BADGE = { pendente: "badge-pendente", recebida: "badge-reembolsado" };
@@ -163,16 +173,32 @@ function renderDashboard() {
   const porTipo = { viagem: 0, departamento: 0, pessoal: 0 };
   state.despesas.forEach((d) => { if (d.tipoDespesa) porTipo[d.tipoDespesa] += d.valor ?? 0; });
 
+  document.getElementById("dashboard-hero").innerHTML = `
+    <div>
+      <div class="hero-balance-label">Gasto no mês</div>
+      <div class="hero-balance-value">R$ ${totalMes.toFixed(2)}</div>
+    </div>
+    <div class="hero-balance-icon">${ICON_SVG.carteira}</div>
+  `;
+
   document.getElementById("dashboard-metrics").innerHTML = `
-    <div class="metric-card"><div class="metric-label">Gasto no mês</div><div class="metric-value">R$ ${totalMes.toFixed(2)}</div></div>
     <button type="button" class="metric-card clickable" id="metric-pendente-reembolso">
       <div class="metric-label">Pendente de reembolso</div>
       <div class="metric-value amber">R$ ${totalPendente.toFixed(2)}</div>
       <div class="metric-hint">Ver por área →</div>
     </button>
-    <div class="metric-card"><div class="metric-label">Viagem</div><div class="metric-value">R$ ${porTipo.viagem.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Departamento</div><div class="metric-value">R$ ${porTipo.departamento.toFixed(2)}</div></div>
-    <div class="metric-card"><div class="metric-label">Pessoal</div><div class="metric-value">R$ ${porTipo.pessoal.toFixed(2)}</div></div>
+    <div class="metric-card tipo-viagem">
+      <div class="metric-icon-row"><span class="icon-badge icon-viagem">${ICON_SVG.viagem}</span><span class="metric-label">Viagem</span></div>
+      <div class="metric-value">R$ ${porTipo.viagem.toFixed(2)}</div>
+    </div>
+    <div class="metric-card tipo-departamento">
+      <div class="metric-icon-row"><span class="icon-badge icon-departamento">${ICON_SVG.departamento}</span><span class="metric-label">Departamento</span></div>
+      <div class="metric-value">R$ ${porTipo.departamento.toFixed(2)}</div>
+    </div>
+    <div class="metric-card tipo-pessoal">
+      <div class="metric-icon-row"><span class="icon-badge icon-pessoal">${ICON_SVG.pessoal}</span><span class="metric-label">Pessoal</span></div>
+      <div class="metric-value">R$ ${porTipo.pessoal.toFixed(2)}</div>
+    </div>
   `;
   document.getElementById("metric-pendente-reembolso").addEventListener("click", abrirModalPendentes);
 
@@ -213,7 +239,7 @@ function linhaDespesaSimples(d) {
     <td data-label="Descrição">${d.descricao ?? ""}</td>
     <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
     <td data-label="Tipo">${d.tipoDespesa ?? "—"}</td>
-    <td data-label="Valor" class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+    <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${(d.valor ?? 0).toFixed(2)}</td>
     <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
   </tr>`;
 }
@@ -309,7 +335,7 @@ function renderDepartamento() {
       <td data-label="Categoria">${CATEGORIA_LABEL[d.categoria] ?? d.categoria}</td>
       <td data-label="Origem">${d.origem ?? ""}</td>
       <td data-label="Status"><span class="badge badge-${d.statusReembolso}">${STATUS_LABEL[d.statusReembolso] ?? d.statusReembolso}</span></td>
-      <td data-label="Valor" class="td-mono">R$ ${(d.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Valor" class="td-mono ${classeValorStatus(d.statusReembolso)}">R$ ${(d.valor ?? 0).toFixed(2)}</td>
       <td data-label="Ações">${botoesAcaoDespesa(d)}</td>
     </tr>
   `).join("") || `<tr><td colspan="8">Nenhuma despesa de departamento lançada ainda.</td></tr>`;
@@ -1163,9 +1189,11 @@ function renderSubvencoes() {
 
   document.querySelector("#tabela-subvencoes tbody").innerHTML = filtradas.map((s) => `
     <tr>
-      <td data-label="Origem">${ORIGEM_SUBVENCAO_LABEL[s.origem] ?? s.origem}</td>
+      <td data-label="Origem">
+        <span class="row-origem"><span class="icon-badge icon-${s.origem}">${ICON_SVG.cifrao}</span>${ORIGEM_SUBVENCAO_LABEL[s.origem] ?? s.origem}</span>
+      </td>
       <td data-label="Observação">${s.observacao ?? ""}</td>
-      <td data-label="Valor" class="td-mono">R$ ${(s.valor ?? 0).toFixed(2)}</td>
+      <td data-label="Valor" class="td-mono ${s.status === "recebida" ? "valor-recebido" : "valor-pendente"}">R$ ${(s.valor ?? 0).toFixed(2)}</td>
       <td data-label="Status"><span class="badge ${STATUS_SUBVENCAO_BADGE[s.status]}">${STATUS_SUBVENCAO_LABEL[s.status] ?? s.status}</span></td>
       <td data-label="Ações">${botoesAcaoSubvencao(s)}</td>
     </tr>
