@@ -42,6 +42,17 @@ const GRUPOS_TIPO_DESPESA = [
 
 function calcularReembolsavel(tipo) { return tipo === "viagem" || tipo === "departamento"; }
 
+// Despesa de viagem cujo relatório já foi marcado como "Pago" já foi reembolsada junto com
+// o relatório, mesmo que o campo statusReembolso da despesa em si ainda diga "pendente".
+function estaPendenteDeReembolso(d) {
+  if (d.statusReembolso !== "pendente") return false;
+  if (d.tipoDespesa === "viagem" && d.relatorioViagemId) {
+    const relatorio = state.relatorios.find((r) => r.id === d.relatorioViagemId);
+    if (relatorio?.status === "pago") return false;
+  }
+  return true;
+}
+
 function toast(msg, isError = false) {
   const el = document.getElementById("toast");
   el.textContent = msg;
@@ -104,6 +115,9 @@ function startListeners() {
     state.relatorios = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     popularSelectRelatorios();
     renderRelatorios();
+    // O total "pendente de reembolso" do Dashboard depende do status do relatório
+    // (uma despesa de viagem some da contagem quando o relatório é marcado como pago).
+    renderDashboard();
   });
 }
 
@@ -115,7 +129,7 @@ function renderDashboard() {
     .filter((d) => d.data && d.data.startsWith(mesAtual))
     .reduce((s, d) => s + (d.valor ?? 0), 0);
   const totalPendente = state.despesas
-    .filter((d) => d.statusReembolso === "pendente")
+    .filter(estaPendenteDeReembolso)
     .reduce((s, d) => s + (d.valor ?? 0), 0);
   const porTipo = { viagem: 0, departamento: 0, pessoal: 0 };
   state.despesas.forEach((d) => { if (d.tipoDespesa) porTipo[d.tipoDespesa] += d.valor ?? 0; });
@@ -143,7 +157,7 @@ function renderDashboard() {
 // ---------- MODAL PENDENTE DE REEMBOLSO POR ÁREA ----------
 const modalPendentes = document.getElementById("modal-pendentes");
 function renderPendentesModal() {
-  const pendentes = state.despesas.filter((d) => d.statusReembolso === "pendente");
+  const pendentes = state.despesas.filter(estaPendenteDeReembolso);
   document.getElementById("pendentes-conteudo").innerHTML = GRUPOS_TIPO_DESPESA.map((grupo) => {
     const despesasGrupo = pendentes.filter((d) => d.tipoDespesa === grupo.tipo);
     if (despesasGrupo.length === 0) return "";
