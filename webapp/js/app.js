@@ -22,6 +22,8 @@ const functions = getFunctions(app, FUNCTIONS_REGION);
 const state = {
   despesas: [], relatorios: [], selecionadas: new Set(), editandoDespesaId: null,
   editandoRelatorioId: null, relatoriosExpandidos: new Set(),
+  relatoriosFixos: [], notasFixas: [], editandoRelatorioFixoId: null, editandoNotaId: null,
+  relatoriosFixosExpandidos: new Set(), notaFixaRelatorioAtual: null,
 };
 
 const CATEGORIA_LABEL = {
@@ -118,6 +120,14 @@ function startListeners() {
     // O total "pendente de reembolso" do Dashboard depende do status do relatório
     // (uma despesa de viagem some da contagem quando o relatório é marcado como pago).
     renderDashboard();
+  });
+  onSnapshot(collection(db, "relatoriosFixos"), (snap) => {
+    state.relatoriosFixos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderRelatoriosFixos();
+  });
+  onSnapshot(collection(db, "notasFixas"), (snap) => {
+    state.notasFixas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderRelatoriosFixos();
   });
 }
 
@@ -231,6 +241,37 @@ document.addEventListener("click", async (e) => {
       toast("Despesa excluída.");
     } catch (err) {
       toast("Erro ao excluir despesa: " + err.message, true);
+    }
+    return;
+  }
+
+  const verNotaBtn = e.target.closest("[data-ver-nota]");
+  if (verNotaBtn) {
+    e.stopPropagation();
+    const n = state.notasFixas.find((x) => x.id === verNotaBtn.dataset.verNota);
+    if (!n) return;
+    const url = await getDownloadURL(ref(storage, n.comprovanteStoragePath));
+    window.open(url, "_blank");
+    return;
+  }
+
+  const editarNotaBtn = e.target.closest("[data-editar-nota]");
+  if (editarNotaBtn) {
+    e.stopPropagation();
+    const n = state.notasFixas.find((x) => x.id === editarNotaBtn.dataset.editarNota);
+    if (n) abrirModalNotaFixaEdicao(n);
+    return;
+  }
+
+  const excluirNotaBtn = e.target.closest("[data-excluir-nota]");
+  if (excluirNotaBtn) {
+    e.stopPropagation();
+    if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) return;
+    try {
+      await deleteDoc(doc(db, "notasFixas", excluirNotaBtn.dataset.excluirNota));
+      toast("Nota excluída.");
+    } catch (err) {
+      toast("Erro ao excluir nota: " + err.message, true);
     }
   }
 });
@@ -593,6 +634,332 @@ function renderRelatorios() {
       }
     });
   });
+}
+
+// ---------- RELATÓRIO FIXO MENSAL ----------
+const MESES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+function nomeMesAtual() {
+  const hoje = new Date();
+  return `${MESES_PT[hoje.getMonth()]} ${hoje.getFullYear()}`;
+}
+
+function linhaNotaFixa(n) {
+  return `<tr>
+    <td data-label="Data">${n.data ?? "—"}</td>
+    <td data-label="Descrição">${n.descricao ?? "—"}</td>
+    <td data-label="Valor" class="td-mono">${n.valor != null ? `R$ ${n.valor.toFixed(2)}` : "—"}</td>
+    <td data-label="Ações">${botoesAcaoNotaFixa(n)}</td>
+  </tr>`;
+}
+function botoesAcaoNotaFixa(n) {
+  return `<div class="row-actions">
+    ${n.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-nota="${n.id}">Ver arquivo</button>` : ""}
+    <button class="btn btn-sm" data-editar-nota="${n.id}">Editar</button>
+    <button class="btn btn-sm btn-danger" data-excluir-nota="${n.id}">Excluir</button>
+  </div>`;
+}
+
+function renderRelatoriosFixos() {
+  document.getElementById("lista-relatorios-fixos").innerHTML = state.relatoriosFixos.map((r) => {
+    const notasDoRelatorio = state.notasFixas.filter((n) => n.relatorioFixoId === r.id);
+    const total = notasDoRelatorio.reduce((s, n) => s + (n.valor ?? 0), 0);
+    const semValor = notasDoRelatorio.filter((n) => n.valor == null).length;
+    const meta = [`${notasDoRelatorio.length} nota(s)`, semValor > 0 ? `${semValor} sem valor lançado` : null]
+      .filter(Boolean).join(" · ");
+    return `
+      <div class="relatorio-card">
+        <div class="relatorio-header" data-toggle-fixo="${r.id}">
+          <div>
+            <div class="relatorio-nome">${r.nome}</div>
+            <div class="relatorio-meta">${meta}</div>
+          </div>
+          <div class="relatorio-total">R$ ${total.toFixed(2)}</div>
+        </div>
+        <div class="relatorio-body${state.relatoriosFixosExpandidos.has(r.id) ? " open" : ""}" id="body-fixo-${r.id}">
+          <div class="table-wrap"><table><tbody>${notasDoRelatorio.map(linhaNotaFixa).join("") || "<tr><td>Nenhuma nota adicionada ainda.</td></tr>"}</tbody></table></div>
+          <div class="form-actions">
+            <button class="btn btn-sm btn-primary" data-add-nota-fixo="${r.id}">+ Adicionar nota</button>
+            <button class="btn btn-sm" data-pdf-relatorio-fixo="${r.id}">Baixar PDF detalhado</button>
+            <button class="btn btn-sm" data-comprovantes-relatorio-fixo="${r.id}">Baixar comprovantes (.zip)</button>
+            <button class="btn btn-sm" data-editar-relatorio-fixo="${r.id}">Editar relatório</button>
+            <button class="btn btn-sm btn-danger" data-excluir-relatorio-fixo="${r.id}">Excluir relatório</button>
+          </div>
+        </div>
+      </div>`;
+  }).join("") || `<p class="page-subtitle">Nenhum relatório fixo mensal criado ainda.</p>`;
+
+  document.querySelectorAll("[data-toggle-fixo]").forEach((h) => {
+    h.addEventListener("click", () => {
+      const id = h.dataset.toggleFixo;
+      state.relatoriosFixosExpandidos.has(id) ? state.relatoriosFixosExpandidos.delete(id) : state.relatoriosFixosExpandidos.add(id);
+      document.getElementById(`body-fixo-${id}`).classList.toggle("open");
+    });
+  });
+  document.querySelectorAll("[data-add-nota-fixo]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirModalNotaFixa(btn.dataset.addNotaFixo);
+    });
+  });
+  document.querySelectorAll("[data-pdf-relatorio-fixo]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorio = state.relatoriosFixos.find((r) => r.id === btn.dataset.pdfRelatorioFixo);
+      if (relatorio) baixarPdfRelatorioFixo(relatorio);
+    });
+  });
+  document.querySelectorAll("[data-comprovantes-relatorio-fixo]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorioId = btn.dataset.comprovantesRelatorioFixo;
+      const relatorio = state.relatoriosFixos.find((r) => r.id === relatorioId);
+      const notasDoRelatorio = state.notasFixas.filter((n) => n.relatorioFixoId === relatorioId);
+      baixarComprovantesZip(notasDoRelatorio, `notas-${relatorio?.nome ?? relatorioId}`);
+    });
+  });
+  document.querySelectorAll("[data-editar-relatorio-fixo]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const relatorio = state.relatoriosFixos.find((r) => r.id === btn.dataset.editarRelatorioFixo);
+      if (relatorio) abrirModalRelatorioFixoEdicao(relatorio);
+    });
+  });
+  document.querySelectorAll("[data-excluir-relatorio-fixo]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const relatorioId = btn.dataset.excluirRelatorioFixo;
+      const notasDoRelatorio = state.notasFixas.filter((n) => n.relatorioFixoId === relatorioId);
+      const aviso = notasDoRelatorio.length > 0
+        ? `Excluir este relatório também vai excluir as ${notasDoRelatorio.length} nota(s) guardadas nele. Essa ação não pode ser desfeita. Continuar?`
+        : "Excluir este relatório fixo mensal? Essa ação não pode ser desfeita.";
+      if (!confirm(aviso)) return;
+      try {
+        await Promise.all(notasDoRelatorio.map((n) => deleteDoc(doc(db, "notasFixas", n.id))));
+        await deleteDoc(doc(db, "relatoriosFixos", relatorioId));
+        toast("Relatório fixo mensal excluído.");
+      } catch (err) {
+        toast("Erro ao excluir relatório: " + err.message, true);
+      }
+    });
+  });
+}
+
+const modalRelatorioFixo = document.getElementById("modal-relatorio-fixo");
+document.getElementById("btn-novo-relatorio-fixo").addEventListener("click", () => {
+  state.editandoRelatorioFixoId = null;
+  document.getElementById("form-relatorio-fixo").reset();
+  document.getElementById("modal-relatorio-fixo-eyebrow").textContent = "Relatório Fixo Mensal";
+  document.getElementById("modal-relatorio-fixo-titulo").textContent = "Novo relatório fixo mensal";
+  document.getElementById("btn-salvar-relatorio-fixo").textContent = "Criar";
+  document.getElementById("rf-nome").value = nomeMesAtual();
+  modalRelatorioFixo.classList.add("show");
+});
+function abrirModalRelatorioFixoEdicao(r) {
+  state.editandoRelatorioFixoId = r.id;
+  document.getElementById("form-relatorio-fixo").reset();
+  document.getElementById("modal-relatorio-fixo-eyebrow").textContent = "Editar";
+  document.getElementById("modal-relatorio-fixo-titulo").textContent = "Editar relatório fixo mensal";
+  document.getElementById("btn-salvar-relatorio-fixo").textContent = "Salvar alterações";
+  document.getElementById("rf-nome").value = r.nome ?? "";
+  modalRelatorioFixo.classList.add("show");
+}
+document.getElementById("btn-cancelar-relatorio-fixo").addEventListener("click", () => {
+  state.editandoRelatorioFixoId = null;
+  modalRelatorioFixo.classList.remove("show");
+});
+document.getElementById("btn-fechar-relatorio-fixo").addEventListener("click", () => {
+  document.getElementById("btn-cancelar-relatorio-fixo").click();
+});
+document.getElementById("form-relatorio-fixo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btnSalvar = document.getElementById("btn-salvar-relatorio-fixo");
+  if (btnSalvar.disabled) return;
+  const editandoId = state.editandoRelatorioFixoId;
+  const textoOriginal = btnSalvar.textContent;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
+  try {
+    const payload = { nome: document.getElementById("rf-nome").value };
+    if (editandoId) {
+      await updateDoc(doc(db, "relatoriosFixos", editandoId), payload);
+    } else {
+      await addDoc(collection(db, "relatoriosFixos"), { ...payload, criadoEm: serverTimestamp() });
+    }
+    state.editandoRelatorioFixoId = null;
+    modalRelatorioFixo.classList.remove("show");
+    toast(editandoId ? "Relatório fixo atualizado." : "Relatório fixo mensal criado.");
+  } catch (err) {
+    toast("Erro ao salvar relatório: " + err.message, true);
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = textoOriginal;
+  }
+});
+
+// ---------- MODAL NOTA FIXA ----------
+const modalNotaFixa = document.getElementById("modal-nota-fixa");
+const extrairValorNota = httpsCallable(functions, "extrairValorNota");
+
+function abrirModalNotaFixa(relatorioFixoId) {
+  state.editandoNotaId = null;
+  state.notaFixaRelatorioAtual = relatorioFixoId;
+  document.getElementById("form-nota-fixa").reset();
+  document.getElementById("modal-nota-fixa-eyebrow").textContent = "Relatório Fixo Mensal";
+  document.getElementById("modal-nota-fixa-titulo").textContent = "Nova nota";
+  document.getElementById("btn-salvar-nota-fixa").textContent = "Salvar";
+  document.getElementById("nf-arquivo-atual").hidden = true;
+  document.getElementById("nf-data").value = new Date().toISOString().slice(0, 10);
+  modalNotaFixa.classList.add("show");
+}
+function abrirModalNotaFixaEdicao(n) {
+  state.editandoNotaId = n.id;
+  state.notaFixaRelatorioAtual = n.relatorioFixoId;
+  document.getElementById("form-nota-fixa").reset();
+  document.getElementById("modal-nota-fixa-eyebrow").textContent = "Editar";
+  document.getElementById("modal-nota-fixa-titulo").textContent = "Editar nota";
+  document.getElementById("btn-salvar-nota-fixa").textContent = "Salvar alterações";
+  document.getElementById("nf-arquivo-atual").hidden = !n.comprovanteStoragePath;
+  document.getElementById("nf-data").value = n.data ?? "";
+  document.getElementById("nf-valor").value = n.valor ?? "";
+  document.getElementById("nf-descricao").value = n.descricao ?? "";
+  modalNotaFixa.classList.add("show");
+}
+document.getElementById("btn-cancelar-nota-fixa").addEventListener("click", () => {
+  state.editandoNotaId = null;
+  state.notaFixaRelatorioAtual = null;
+  modalNotaFixa.classList.remove("show");
+});
+document.getElementById("btn-fechar-nota-fixa").addEventListener("click", () => {
+  document.getElementById("btn-cancelar-nota-fixa").click();
+});
+
+function arquivoParaBase64(arquivo) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    reader.readAsDataURL(arquivo);
+  });
+}
+
+document.getElementById("btn-detectar-valor").addEventListener("click", async () => {
+  const arquivo = document.getElementById("nf-arquivo").files[0];
+  if (!arquivo) { toast("Escolha um arquivo primeiro.", true); return; }
+  const btn = document.getElementById("btn-detectar-valor");
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Lendo...";
+  try {
+    const base64 = await arquivoParaBase64(arquivo);
+    const { data } = await extrairValorNota({ base64, mimeType: arquivo.type });
+    if (data.valor != null) document.getElementById("nf-valor").value = data.valor;
+    if (data.data) document.getElementById("nf-data").value = data.data;
+    if (!document.getElementById("nf-descricao").value && (data.estabelecimento || data.descricao)) {
+      document.getElementById("nf-descricao").value = data.estabelecimento || data.descricao;
+    }
+    toast(
+      data.valor != null
+        ? `Valor detectado: R$ ${Number(data.valor).toFixed(2)}`
+        : "Não consegui identificar o valor nesse arquivo — confira e digite manualmente.",
+      data.valor == null
+    );
+  } catch (err) {
+    toast("Erro ao detectar valor: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+});
+
+document.getElementById("form-nota-fixa").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btnSalvar = document.getElementById("btn-salvar-nota-fixa");
+  if (btnSalvar.disabled) return;
+  const editandoId = state.editandoNotaId;
+  const arquivo = document.getElementById("nf-arquivo").files[0];
+  if (!editandoId && !arquivo) {
+    toast("Anexe o arquivo da nota, cupom ou comprovante.", true);
+    return;
+  }
+  const textoOriginal = btnSalvar.textContent;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
+  try {
+    const valorTexto = document.getElementById("nf-valor").value;
+    const payload = {
+      relatorioFixoId: state.notaFixaRelatorioAtual,
+      data: document.getElementById("nf-data").value,
+      valor: valorTexto === "" ? null : Number(valorTexto),
+      descricao: document.getElementById("nf-descricao").value || null,
+      atualizadoEm: serverTimestamp(),
+    };
+    let notaId = editandoId;
+    if (editandoId) {
+      await updateDoc(doc(db, "notasFixas", editandoId), payload);
+    } else {
+      const docRef = await addDoc(collection(db, "notasFixas"), {
+        ...payload, comprovanteStoragePath: null, criadoEm: serverTimestamp(),
+      });
+      notaId = docRef.id;
+    }
+    if (arquivo) {
+      const path = `notas-fixas/${notaId}/original.${arquivo.name.split(".").pop()}`;
+      await uploadBytes(ref(storage, path), arquivo);
+      await updateDoc(doc(db, "notasFixas", notaId), { comprovanteStoragePath: path });
+    }
+    state.editandoNotaId = null;
+    state.notaFixaRelatorioAtual = null;
+    modalNotaFixa.classList.remove("show");
+    toast(editandoId ? "Nota atualizada." : "Nota adicionada.");
+  } catch (err) {
+    toast("Erro ao salvar nota: " + err.message, true);
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = textoOriginal;
+  }
+});
+
+// Fecha ao clicar fora da caixa ou apertando Esc (mesmo padrão dos outros modais)
+[modalRelatorioFixo, modalNotaFixa].forEach((overlay) => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.querySelector(".modal-close").click();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (modalRelatorioFixo.classList.contains("show")) document.getElementById("btn-fechar-relatorio-fixo").click();
+  else if (modalNotaFixa.classList.contains("show")) document.getElementById("btn-fechar-nota-fixa").click();
+});
+
+function tabelaNotasPdf(doc, notas, startY) {
+  const linhas = notas.map((n) => [
+    n.data ?? "—", n.descricao ?? "—", n.valor != null ? `R$ ${n.valor.toFixed(2)}` : "—",
+  ]);
+  const total = notas.reduce((s, n) => s + (n.valor ?? 0), 0);
+  doc.autoTable({
+    startY: startY ?? 36,
+    head: [["Data", "Descrição", "Valor"]],
+    body: linhas,
+    foot: [["", "Total", `R$ ${total.toFixed(2)}`]],
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: [23, 27, 37] },
+    footStyles: { fillColor: [23, 27, 37], fontStyle: "bold" },
+    columnStyles: { 2: { halign: "right" } },
+  });
+  return total;
+}
+
+function baixarPdfRelatorioFixo(relatorio) {
+  const notasDoRelatorio = state.notasFixas.filter((n) => n.relatorioFixoId === relatorio.id);
+  const doc = novoPdf(relatorio.nome, `${notasDoRelatorio.length} nota(s)`);
+  if (notasDoRelatorio.length === 0) {
+    doc.setFontSize(11);
+    doc.setTextColor(120);
+    doc.text("Nenhuma nota guardada neste relatório ainda.", 14, 40);
+  } else {
+    tabelaNotasPdf(doc, notasDoRelatorio);
+  }
+  doc.save(nomeArquivo(relatorio.nome));
 }
 
 // ---------- REEMBOLSO ----------

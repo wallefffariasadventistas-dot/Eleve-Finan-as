@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=21" />
+<link rel="stylesheet" href="css/style.css?v=22" />
 </head>
 <body>
 
@@ -66,6 +66,10 @@
       <button class="nav-item" data-section="pessoal">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
         Despesas Pessoais
+      </button>
+      <button class="nav-item" data-section="fixo">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2.5"/></svg>
+        Relatório Fixo Mensal
       </button>
       <button class="nav-item" data-section="reembolso">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -164,6 +168,18 @@
       </div>
     </section>
 
+    <section id="section-fixo" class="section">
+      <header class="page-header">
+        <div>
+          <p class="page-eyebrow">Notas · Recibos · Comprovantes</p>
+          <h2 class="page-title">Relatório Fixo Mensal</h2>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-relatorio-fixo">+ Novo relatório fixo mensal</button>
+      </header>
+      <p class="page-subtitle">Guarde aqui as notas fiscais, cupons, recibos e comprovantes que você vai juntando ao longo do mês para o envio mensal. O valor de cada nota pode ser digitado à mão ou detectado automaticamente lendo o arquivo.</p>
+      <div id="lista-relatorios-fixos"></div>
+    </section>
+
     <section id="section-reembolso" class="section">
       <header class="page-header">
         <div>
@@ -255,6 +271,57 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-relatorio-fixo">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-relatorio-fixo" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow" id="modal-relatorio-fixo-eyebrow">Relatório Fixo Mensal</p>
+    <h2 id="modal-relatorio-fixo-titulo">Novo relatório fixo mensal</h2>
+    <form id="form-relatorio-fixo">
+      <div class="form-grid wide">
+        <div class="field"><label>Nome</label><input type="text" id="rf-nome" placeholder="Setembro 2026" required /></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-relatorio-fixo">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-relatorio-fixo">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-nota-fixa">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-nota-fixa" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow" id="modal-nota-fixa-eyebrow">Relatório Fixo Mensal</p>
+    <h2 id="modal-nota-fixa-titulo">Nova nota</h2>
+    <form id="form-nota-fixa">
+      <div class="form-grid wide">
+        <div class="field">
+          <label>Arquivo (nota, cupom, recibo ou print)</label>
+          <input type="file" id="nf-arquivo" accept="image/*,application/pdf" />
+          <p class="field-hint" id="nf-arquivo-atual" hidden>Já tem um arquivo salvo. Escolha outro só se quiser substituir.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Data</label><input type="date" id="nf-data" required /></div>
+        <div class="field">
+          <label>Valor (R$)</label>
+          <div class="input-with-action">
+            <input type="number" step="0.01" id="nf-valor" />
+            <button type="button" class="btn btn-sm" id="btn-detectar-valor">Detectar com IA</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid wide">
+        <div class="field"><label>Descrição (opcional)</label><input type="text" id="nf-descricao" placeholder="Ex: Farmácia, mercado, posto..." /></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-nota-fixa">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-nota-fixa">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-pendentes">
   <div class="modal modal-lg">
     <button type="button" class="modal-close" id="btn-fechar-pendentes" aria-label="Fechar">&times;</button>
@@ -268,7 +335,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=21"></script>
+<script type="module" src="js/app.js?v=22"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

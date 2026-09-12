@@ -157,6 +157,10 @@ tbody tr:hover td { background: var(--surface2); }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
+.field-hint { font-size: 11.5px; color: var(--text3); }
+.input-with-action { display: flex; gap: 8px; }
+.input-with-action input { flex: 1; min-width: 0; }
+.input-with-action .btn { flex-shrink: 0; white-space: nowrap; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; margin-bottom: 14px; }
 .form-grid.wide { grid-template-columns: 1fr; }
 input:not([type="checkbox"]):not([type="radio"]), select, textarea {
