@@ -21,9 +21,6 @@ export const telegramWebhook = onRequest(
     if (config.telegram.webhookSecret) {
       const recebido = req.get("X-Telegram-Bot-Api-Secret-Token");
       if (recebido !== config.telegram.webhookSecret) {
-        console.log(
-          `[diag] secret_token não bateu. recebido.length=${recebido?.length ?? 0} esperado.length=${config.telegram.webhookSecret.length}`
-        );
         res.sendStatus(401);
         return;
       }
@@ -33,10 +30,9 @@ export const telegramWebhook = onRequest(
     res.sendStatus(200);
     try {
       const update = req.body as TelegramUpdate;
-      console.log(`[diag] update recebido: ${JSON.stringify(update)}`);
       await processarUpdate(update);
     } catch (err) {
-      console.log(`[diag] erro ao processar update: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+      console.error(`Erro ao processar update do Telegram: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
     }
   }
 );

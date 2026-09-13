@@ -44,7 +44,13 @@ function parseJsonResponse(textBlock: { type: string; text?: string } | undefine
   if (!textBlock || textBlock.type !== "text" || !textBlock.text) {
     throw new Error("Resposta da IA sem conteúdo de texto");
   }
-  return JSON.parse(textBlock.text) as ExtractedExpense;
+  // O prompt pede JSON puro, mas o modelo às vezes devolve envolto em ```json ... ``` mesmo assim.
+  const semCercaMarkdown = textBlock.text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
+  return JSON.parse(semCercaMarkdown) as ExtractedExpense;
 }
 
 async function extractFromContent(
