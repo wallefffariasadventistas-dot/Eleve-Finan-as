@@ -3,7 +3,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Recibos/notas/comprovantes: leitura só para o dono autenticado no dashboard.
-    // A escrita é feita pelo backend (Admin SDK) quando o WhatsApp recebe um arquivo,
+    // A escrita é feita pelo backend (Admin SDK) quando o Telegram recebe um arquivo,
     // ou pelo próprio dashboard ao anexar um comprovante em um lançamento manual.
     match /recibos/{despesaId}/{arquivo} {
       allow read: if request.auth != null;

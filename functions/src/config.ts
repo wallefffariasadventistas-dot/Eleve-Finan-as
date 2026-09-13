@@ -1,23 +1,19 @@
 /**
  * Todas as credenciais vêm de variáveis de ambiente / Firebase Secrets — nunca hardcode aqui.
  * Configurar em produção com:
- *   firebase functions:secrets:set WHATSAPP_TOKEN
+ *   firebase functions:secrets:set TELEGRAM_BOT_TOKEN
  *   firebase functions:secrets:set ANTHROPIC_API_KEY
  *   ...etc
  */
 export const config = {
-  whatsapp: {
-    // Token de acesso (temporário ou permanente) gerado no Meta for Developers.
-    accessToken: process.env.WHATSAPP_TOKEN ?? "",
-    // Phone Number ID do número de WhatsApp Business conectado ao App.
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
-    // Token arbitrário que você escolhe e cola também no campo "Verify Token" do Meta.
-    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? "",
-    // Número (formato internacional, só dígitos, ex: 5511999999999) autorizado a lançar despesas.
-    ownerNumber: process.env.WHATSAPP_OWNER_NUMBER ?? "",
-    // Número da secretária para onde os pedidos de reembolso podem ser enviados por WhatsApp.
-    secretaryNumber: process.env.WHATSAPP_SECRETARY_NUMBER ?? "",
-    apiVersion: "v21.0",
+  telegram: {
+    // Token do bot, gerado pelo @BotFather no Telegram.
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+    // Chat ID (numérico, como string) autorizado a lançar despesas — só esse chat é atendido.
+    ownerChatId: process.env.TELEGRAM_OWNER_CHAT_ID ?? "",
+    // Token arbitrário que você escolhe e passa também na hora de registrar o webhook
+    // (setWebhook com secret_token) — usado para confirmar que a chamada é mesmo do Telegram.
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY ?? "",

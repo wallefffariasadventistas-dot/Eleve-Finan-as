@@ -1,7 +1,7 @@
 {
   "name": "eleve-functions",
   "version": "1.0.0",
-  "description": "Backend automatizado do Eleve: recebe despesas via WhatsApp, extrai dados com IA e sincroniza no Firebase.",
+  "description": "Backend automatizado do Eleve: recebe despesas via Telegram, extrai dados com IA e sincroniza no Firebase.",
   "main": "lib/index.js",
   "engines": {
     "node": "20"

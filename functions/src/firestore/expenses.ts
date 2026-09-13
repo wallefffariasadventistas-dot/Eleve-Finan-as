@@ -1,12 +1,12 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { collections } from "./db";
-import { CategoriaDespesa, TipoDespesa } from "../whatsapp/types";
+import { CategoriaDespesa, TipoDespesa } from "../types";
 
 export type OrigemLancamento =
-  | "whatsapp-foto"
-  | "whatsapp-audio"
-  | "whatsapp-texto"
-  | "whatsapp-comprovante"
+  | "telegram-foto"
+  | "telegram-audio"
+  | "telegram-texto"
+  | "telegram-comprovante"
   | "manual";
 
 export type StatusReembolso = "nao_reembolsavel" | "pendente" | "enviado" | "reembolsado";
@@ -18,7 +18,7 @@ export interface Despesa {
   descricao: string;
   categoria: CategoriaDespesa;
   tipoDespesa: TipoDespesa | null;
-  /** false enquanto o WhatsApp ainda está perguntando tipo/relatório/valor ao dono. */
+  /** false enquanto o Telegram ainda está perguntando tipo/relatório/valor ao dono. */
   finalizado: boolean;
   reembolsavel: boolean;
   statusReembolso: StatusReembolso;

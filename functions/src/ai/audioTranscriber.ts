@@ -3,7 +3,7 @@ import speech from "@google-cloud/speech";
 const client = new speech.SpeechClient();
 
 /**
- * Transcreve um áudio de voz do WhatsApp (formato OGG/Opus) para texto em português.
+ * Transcreve uma nota de voz do Telegram (formato OGG/Opus) para texto em português.
  * Usa o Google Cloud Speech-to-Text — já autenticado automaticamente via a service account
  * do próprio projeto Firebase, sem precisar de chave extra.
  */

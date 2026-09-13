@@ -1426,30 +1426,24 @@ async function baixarComprovantesZip(despesas, nomeBase) {
 }
 
 document.querySelectorAll("#section-reembolso [data-canal]").forEach((btn) => {
-  btn.addEventListener("click", () => acionarReembolso(btn.dataset.canal, { tipoDespesa: "departamento" }));
+  btn.addEventListener("click", () => acionarReembolso({ tipoDespesa: "departamento" }));
 });
 
 document.getElementById("btn-enviar-reembolso-departamento").addEventListener("click", () => {
   if (state.selecionadas.size === 0) { toast("Selecione ao menos uma despesa pendente.", true); return; }
-  const canal = escolherCanal();
-  acionarReembolso(canal, { despesaIds: Array.from(state.selecionadas) });
+  acionarReembolso({ despesaIds: Array.from(state.selecionadas) });
 });
 
 document.getElementById("btn-enviar-tudo-departamento").addEventListener("click", () => {
   const pendentes = state.despesas.filter((d) => d.tipoDespesa === "departamento" && d.statusReembolso === "pendente");
   if (pendentes.length === 0) { toast("Nenhuma despesa de departamento pendente de reembolso.", true); return; }
-  const canal = escolherCanal();
-  acionarReembolso(canal, { tipoDespesa: "departamento" });
+  acionarReembolso({ tipoDespesa: "departamento" });
 });
 
-function escolherCanal() {
-  return confirm("OK = enviar por e-mail. Cancelar = enviar por WhatsApp.") ? "email" : "whatsapp";
-}
-
-async function acionarReembolso(canal, filtro = {}) {
+async function acionarReembolso(filtro = {}) {
   try {
-    const { data } = await enviarParaReembolso({ canal, ...filtro });
-    toast(`${data.enviado} despesa(s) enviada(s) para reembolso por ${canal}.`);
+    const { data } = await enviarParaReembolso(filtro);
+    toast(`${data.enviado} despesa(s) enviada(s) para reembolso por e-mail.`);
     state.selecionadas.clear();
   } catch (err) {
     toast("Erro ao enviar para reembolso: " + err.message, true);

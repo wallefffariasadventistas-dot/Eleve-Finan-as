@@ -26,7 +26,7 @@ export async function salvarComprovante(
 export async function gerarUrlAssinada(storagePath: string): Promise<string> {
   const [url] = await bucket.file(storagePath).getSignedUrl({
     action: "read",
-    expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 dias — suficiente para o e-mail/whatsapp de reembolso
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 dias — suficiente para o e-mail de reembolso
   });
   return url;
 }

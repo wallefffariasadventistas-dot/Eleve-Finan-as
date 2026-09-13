@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config";
-import { CategoriaDespesa, ExtractedExpense, TipoDespesa } from "../whatsapp/types";
+import { CategoriaDespesa, ExtractedExpense, TipoDespesa } from "../types";
 
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 

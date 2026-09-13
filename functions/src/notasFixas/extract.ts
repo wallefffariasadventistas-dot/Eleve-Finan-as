@@ -8,7 +8,7 @@ interface ExtrairValorNotaRequest {
 
 /**
  * Lê uma nota/cupom/recibo enviado manualmente pelo dashboard e devolve o valor (e outros
- * dados) detectados pela IA — mesma extração já usada no fluxo do WhatsApp, só que aqui é
+ * dados) detectados pela IA — mesma extração já usada no fluxo do Telegram, só que aqui é
  * chamada sob demanda pelo botão "Detectar com IA" em vez de automática por mensagem.
  */
 export const extrairValorNota = onCall<ExtrairValorNotaRequest>(

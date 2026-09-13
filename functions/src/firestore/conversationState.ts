@@ -3,7 +3,7 @@ import { collections } from "./db";
 
 /**
  * O que falta perguntar ao usuário antes de considerar uma despesa "lançada".
- * O doc id da coleção é o próprio número de WhatsApp do dono (só ele lança despesas).
+ * O doc id da coleção é o próprio chat ID do Telegram do dono (só ele lança despesas).
  */
 export type Pendencia =
   | { aguardando: "tipo_despesa"; despesaId: string }
