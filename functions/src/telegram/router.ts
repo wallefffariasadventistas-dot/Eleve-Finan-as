@@ -131,10 +131,11 @@ async function lancarDespesa(
 
   if (extraido.confiancaBaixa) {
     await definirEstado(chatId, { aguardando: "confirmacao_valor", despesaId });
-    await sendText(
+    await sendButtons(
       chatId,
       `Registrei um valor de R$ ${extraido.valor.toFixed(2)} mas não tenho certeza — está correto? ` +
-        `Responda com o valor certo, ou "confirma" se estiver ok.`
+        `Toque em Confirmar, ou digite o valor certo.`,
+      [{ id: "confirma_valor", title: "✅ Confirmar" }]
     );
     return;
   }
@@ -148,21 +149,23 @@ async function lancarDespesa(
   await concluirComTipo(chatId, despesaId, tipoDespesa);
 }
 
+function botoesRelatorios(abertos: Array<{ id: string; nome: string }>) {
+  return abertos
+    .slice(0, 2)
+    .map((r) => ({ id: `relatorio_${r.id}`, title: r.nome }))
+    .concat([{ id: "relatorio_novo", title: "+ Nova viagem" }]);
+}
+
 async function concluirComTipo(chatId: string, despesaId: string, tipoDespesa: TipoDespesa): Promise<void> {
   if (tipoDespesa === "viagem") {
     const abertos = await listarRelatoriosAbertos();
-    await definirEstado(chatId, { aguardando: "relatorio_viagem", despesaId });
     if (abertos.length === 0) {
-      await sendText(chatId, 'Qual o nome do relatório de viagem? (ex: "Viagem São Paulo")');
+      // Sem relatório aberto pra escolher — só nesse caso perguntamos o nome digitado.
+      await definirEstado(chatId, { aguardando: "nome_relatorio_viagem", despesaId });
+      await sendText(chatId, 'Qual o nome dessa viagem? (ex: "Viagem São Paulo")');
     } else {
-      await sendButtons(
-        chatId,
-        "Em qual relatório de viagem lanço essa despesa?",
-        abertos
-          .slice(0, 2)
-          .map((r) => ({ id: `relatorio_${r.id}`, title: r.nome }))
-          .concat([{ id: "relatorio_novo", title: "Nova viagem" }])
-      );
+      await definirEstado(chatId, { aguardando: "relatorio_viagem", despesaId });
+      await sendButtons(chatId, "Em qual relatório de viagem lanço essa despesa?", botoesRelatorios(abertos));
     }
     return;
   }
@@ -190,15 +193,31 @@ async function tratarResposta(
   }
 
   if (pendencia.aguardando === "relatorio_viagem") {
-    let relatorioId: string;
-    if (respostaId === "relatorio_novo" || (!respostaId && respostaTexto)) {
-      relatorioId = await criarRelatorioViagem(respostaTexto ?? "Nova viagem");
-    } else if (respostaId?.startsWith("relatorio_")) {
-      relatorioId = respostaId.replace("relatorio_", "");
-    } else {
-      await sendText(chatId, "Qual o nome do relatório de viagem?");
+    if (respostaId === "relatorio_novo") {
+      await definirEstado(chatId, { aguardando: "nome_relatorio_viagem", despesaId: pendencia.despesaId });
+      await sendText(chatId, 'Qual o nome dessa viagem? (ex: "Viagem São Paulo")');
       return;
     }
+    if (respostaId?.startsWith("relatorio_")) {
+      const relatorioId = respostaId.replace("relatorio_", "");
+      await limparEstado(chatId);
+      await finalizarDespesa(pendencia.despesaId, "viagem", relatorioId);
+      await sendText(chatId, "Lançado ✅ — viagem, reembolsável.");
+      return;
+    }
+    // Resposta digitada em vez de tocar num botão — não cria relatório novo sozinho,
+    // pra não duplicar um relatório que já está aberto. Mostra as opções de novo.
+    const abertos = await listarRelatoriosAbertos();
+    await sendButtons(chatId, "Toque em uma das opções abaixo:", botoesRelatorios(abertos));
+    return;
+  }
+
+  if (pendencia.aguardando === "nome_relatorio_viagem") {
+    if (!respostaTexto) {
+      await sendText(chatId, "Qual o nome dessa viagem?");
+      return;
+    }
+    const relatorioId = await criarRelatorioViagem(respostaTexto);
     await limparEstado(chatId);
     await finalizarDespesa(pendencia.despesaId, "viagem", relatorioId);
     await sendText(chatId, "Lançado ✅ — viagem, reembolsável.");
@@ -208,7 +227,8 @@ async function tratarResposta(
   if (pendencia.aguardando === "confirmacao_valor") {
     const despesa = await buscarDespesa(pendencia.despesaId);
     if (!despesa) return;
-    if (respostaTexto && !/^confirma/i.test(respostaTexto)) {
+    const confirmou = respostaId === "confirma_valor" || (!!respostaTexto && /^confirma/i.test(respostaTexto));
+    if (!confirmou && respostaTexto) {
       const novoValor = Number(respostaTexto.replace(",", ".").replace(/[^0-9.]/g, ""));
       if (!Number.isNaN(novoValor) && novoValor > 0) {
         await atualizarDespesa(pendencia.despesaId, { valor: novoValor });

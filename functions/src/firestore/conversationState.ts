@@ -8,6 +8,7 @@ import { collections } from "./db";
 export type Pendencia =
   | { aguardando: "tipo_despesa"; despesaId: string }
   | { aguardando: "relatorio_viagem"; despesaId: string }
+  | { aguardando: "nome_relatorio_viagem"; despesaId: string }
   | { aguardando: "confirmacao_valor"; despesaId: string }
   | null;
 
