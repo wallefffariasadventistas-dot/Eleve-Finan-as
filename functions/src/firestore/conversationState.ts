@@ -11,6 +11,8 @@ export interface ResumoDespesaPendente {
   descricao: string;
   categoria: CategoriaDespesa;
   confiancaBaixa: boolean;
+  /** Presente só quando vários comprovantes foram enviados juntos — um item por comprovante, pra listar antes do total. */
+  itens?: Array<{ descricao: string; valor: number }>;
 }
 
 /** Referência a um arquivo do Telegram ainda não baixado (baixa de novo só se confirmado). */

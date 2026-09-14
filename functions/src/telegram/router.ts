@@ -148,14 +148,18 @@ async function confirmarAntesDeRegistrar(
 ): Promise<void> {
   await definirEstado(chatId, { aguardando: "confirmar_lancamento", resumo, arquivos, origem });
   const detalhes = [resumo.estabelecimento, resumo.data ? formatarDataBR(resumo.data) : null].filter(Boolean).join(" · ");
-  await sendButtons(
-    chatId,
-    `Encontrei: R$ ${resumo.valor.toFixed(2)}${detalhes ? ` (${detalhes})` : ""}\n${resumo.descricao}\n\nQuer registrar essa despesa?`,
-    [
-      { id: "confirmar_lancamento_sim", title: "✅ Continuar" },
-      { id: "confirmar_lancamento_nao", title: "❌ Cancelar" },
-    ]
-  );
+
+  const mensagem =
+    resumo.itens && resumo.itens.length > 1
+      ? `Encontrei ${resumo.itens.length} comprovantes:\n` +
+        resumo.itens.map((item) => `${item.descricao}: R$ ${item.valor.toFixed(2)}`).join("\n") +
+        `\n\nTotal: R$ ${resumo.valor.toFixed(2)}${detalhes ? ` (${detalhes})` : ""}\n\nDeseja registrar o total de R$ ${resumo.valor.toFixed(2)}?`
+      : `Encontrei: R$ ${resumo.valor.toFixed(2)}${detalhes ? ` (${detalhes})` : ""}\n${resumo.descricao}\n\nQuer registrar essa despesa?`;
+
+  await sendButtons(chatId, mensagem, [
+    { id: "confirmar_lancamento_sim", title: "✅ Continuar" },
+    { id: "confirmar_lancamento_nao", title: "❌ Cancelar" },
+  ]);
 }
 
 /**
@@ -220,6 +224,9 @@ async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo
     descricao,
     categoria,
     confiancaBaixa,
+    ...(comValor.length > 1
+      ? { itens: comValor.map((e) => ({ descricao: e.descricao, valor: e.valor as number })) }
+      : {}),
   };
   const arquivosPendentes: ArquivoPendente[] = arquivosGrupo.map((a, i) => ({ fileId: a.fileId, mimeType: mimeTypesResolvidos[i] }));
   await confirmarAntesDeRegistrar(chatId, resumo, arquivosPendentes, temFoto ? "telegram-foto" : "telegram-comprovante");
