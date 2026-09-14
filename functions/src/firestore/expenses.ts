@@ -81,6 +81,11 @@ export async function marcarStatusReembolso(ids: string[], status: StatusReembol
   await batch.commit();
 }
 
+/** Apaga uma despesa ainda não finalizada — usado quando o dono cancela o lançamento no meio do fluxo. */
+export async function excluirDespesa(id: string): Promise<void> {
+  await collections.expenses.doc(id).delete();
+}
+
 export async function buscarDespesa(id: string): Promise<(Despesa & { id: string }) | null> {
   const snap = await collections.expenses.doc(id).get();
   if (!snap.exists) return null;

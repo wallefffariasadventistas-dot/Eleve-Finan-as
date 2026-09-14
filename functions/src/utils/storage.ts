@@ -28,6 +28,11 @@ export async function salvarComprovante(
   return path;
 }
 
+/** Apaga todos os comprovantes salvos de uma despesa — usado quando o lançamento é cancelado no meio do fluxo. */
+export async function excluirComprovantes(despesaId: string): Promise<void> {
+  await bucket.deleteFiles({ prefix: `${config.storageBucketReceiptsPrefix}/${despesaId}/` }).catch(() => {});
+}
+
 export async function gerarUrlAssinada(storagePath: string): Promise<string> {
   const [url] = await bucket.file(storagePath).getSignedUrl({
     action: "read",

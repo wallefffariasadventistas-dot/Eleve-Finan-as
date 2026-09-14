@@ -3,8 +3,15 @@ import { sendButtons, sendText, downloadMedia, answerCallback } from "./client";
 import { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from "./types";
 import { extractFromImage, extractFromPdf, extractFromText } from "../ai/expenseExtractor";
 import { transcribeAudio } from "../ai/audioTranscriber";
-import { salvarComprovante } from "../utils/storage";
-import { atualizarDespesa, buscarDespesa, criarDespesa, finalizarDespesa, OrigemLancamento } from "../firestore/expenses";
+import { excluirComprovantes, salvarComprovante } from "../utils/storage";
+import {
+  atualizarDespesa,
+  buscarDespesa,
+  criarDespesa,
+  excluirDespesa,
+  finalizarDespesa,
+  OrigemLancamento,
+} from "../firestore/expenses";
 import { criarRelatorioViagem, listarRelatoriosAbertos } from "../firestore/travelReports";
 import {
   ArquivoPendente,
@@ -452,6 +459,20 @@ async function tratarResposta(
   pendencia: NonNullable<Pendencia>
 ): Promise<void> {
   const { respostaId, respostaTexto } = resposta;
+
+  // "cancelar" digitado cancela o lançamento em qualquer etapa do fluxo, não só na confirmação
+  // inicial. Exige a palavra exata (não só o prefixo) pra não disparar sozinho quando o texto
+  // digitado no título/descrição começa com "cancela..." (ex: "Cancelamento de reserva").
+  const textoCancelar = respostaTexto?.trim().toLowerCase();
+  if (textoCancelar === "cancela" || textoCancelar === "cancelar") {
+    await limparEstado(chatId);
+    if (pendencia.aguardando !== "confirmar_lancamento" && pendencia.aguardando !== "processando_ia") {
+      await excluirDespesa(pendencia.despesaId);
+      await excluirComprovantes(pendencia.despesaId);
+    }
+    await sendText(chatId, "Cancelado. Nenhuma despesa foi registrada.");
+    return;
+  }
 
   if (pendencia.aguardando === "confirmar_lancamento") {
     const cancelou = respostaId === "confirmar_lancamento_nao" || (!!respostaTexto && /^(n[ãa]o|cancela)/i.test(respostaTexto));
