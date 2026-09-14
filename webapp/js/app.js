@@ -3,7 +3,7 @@ import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
-  getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp,
+  getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytes, getDownloadURL,
@@ -188,6 +188,11 @@ function startListeners() {
   onSnapshot(collection(db, "subvencoes"), (snap) => {
     state.subvencoes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderSubvencoes();
+  });
+  onSnapshot(doc(db, "configuracoes", "reembolso"), (snap) => {
+    const cfg = snap.exists() ? snap.data() : {};
+    document.getElementById("cfg-conta").value = cfg.contaReembolso ?? "";
+    document.getElementById("cfg-centro-custo").value = cfg.centroCusto ?? "";
   });
 }
 
@@ -1440,18 +1445,18 @@ async function baixarComprovantesZip(despesas, nomeBase) {
 }
 
 document.querySelectorAll("#section-reembolso [data-canal]").forEach((btn) => {
-  btn.addEventListener("click", () => acionarReembolso({ tipoDespesa: "departamento" }));
+  btn.addEventListener("click", () => abrirModalReembolso({ tipoDespesa: "departamento" }));
 });
 
 document.getElementById("btn-enviar-reembolso-departamento").addEventListener("click", () => {
   if (state.selecionadas.size === 0) { toast("Selecione ao menos uma despesa pendente.", true); return; }
-  acionarReembolso({ despesaIds: Array.from(state.selecionadas) });
+  abrirModalReembolso({ despesaIds: Array.from(state.selecionadas) });
 });
 
 document.getElementById("btn-enviar-tudo-departamento").addEventListener("click", () => {
   const pendentes = state.despesas.filter((d) => d.tipoDespesa === "departamento" && d.statusReembolso === "pendente");
   if (pendentes.length === 0) { toast("Nenhuma despesa de departamento pendente de reembolso.", true); return; }
-  acionarReembolso({ tipoDespesa: "departamento" });
+  abrirModalReembolso({ tipoDespesa: "departamento" });
 });
 
 async function acionarReembolso(filtro = {}) {
@@ -1463,6 +1468,54 @@ async function acionarReembolso(filtro = {}) {
     toast("Erro ao enviar para reembolso: " + err.message, true);
   }
 }
+
+// ---------- MODAL ESCOLHA DO FUNDO (antes de enviar reembolso) ----------
+const modalReembolso = document.getElementById("modal-reembolso");
+let filtroReembolsoPendente = null;
+
+function abrirModalReembolso(filtro) {
+  filtroReembolsoPendente = filtro;
+  modalReembolso.classList.add("show");
+}
+document.getElementById("btn-fechar-reembolso-modal").addEventListener("click", () => {
+  filtroReembolsoPendente = null;
+  modalReembolso.classList.remove("show");
+});
+document.querySelectorAll("#modal-reembolso [data-fundo]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const fundo = btn.dataset.fundo;
+    modalReembolso.classList.remove("show");
+    if (filtroReembolsoPendente) acionarReembolso({ ...filtroReembolsoPendente, fundo });
+    filtroReembolsoPendente = null;
+  });
+});
+[modalReembolso].forEach((overlay) => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.querySelector(".modal-close").click();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (modalReembolso.classList.contains("show")) document.getElementById("btn-fechar-reembolso-modal").click();
+});
+
+// ---------- CONFIGURAÇÕES DE REEMBOLSO (conta / centro de custo) ----------
+document.getElementById("form-config-reembolso").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await setDoc(
+      doc(db, "configuracoes", "reembolso"),
+      {
+        contaReembolso: document.getElementById("cfg-conta").value.trim(),
+        centroCusto: document.getElementById("cfg-centro-custo").value.trim(),
+      },
+      { merge: true }
+    );
+    toast("Dados de reembolso salvos.");
+  } catch (err) {
+    toast("Erro ao salvar dados de reembolso: " + err.message, true);
+  }
+});
 
 // ---------- PDF ----------
 function novoPdf(titulo, subtitulo) {

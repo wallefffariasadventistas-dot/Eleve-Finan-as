@@ -2,26 +2,58 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import nodemailer from "nodemailer";
 import { config } from "../config";
 import { listarPendentesDeReembolso, marcarStatusReembolso, buscarDespesa } from "../firestore/expenses";
+import { obterConfiguracoesReembolso } from "../firestore/settings";
 import { gerarUrlAssinada } from "../utils/storage";
 import { TipoDespesa } from "../types";
 
+export type Fundo = "fundo10" | "publicacoes";
+
+const FUNDO_LABEL: Record<Fundo, string> = {
+  fundo10: "Fundo 10",
+  publicacoes: "Publicações",
+};
+
 interface EnviarReembolsoRequest {
+  fundo: Fundo;
   tipoDespesa?: TipoDespesa;
   relatorioViagemId?: string;
   /** Se enviado, usa exatamente essa lista em vez de buscar todas as pendentes do filtro acima. */
   despesaIds?: string[];
 }
 
-function montarResumo(
+function montarEmail(
   despesas: Awaited<ReturnType<typeof listarPendentesDeReembolso>>,
-  links: string[]
-): string {
+  links: string[],
+  fundo: Fundo,
+  { contaReembolso, centroCusto }: { contaReembolso: string; centroCusto: string }
+): { assunto: string; corpo: string } {
   const total = despesas.reduce((soma, d) => soma + (d.valor ?? 0), 0);
+  const fundoLabel = FUNDO_LABEL[fundo];
   const linhas = despesas.map((d, i) => {
     const link = links[i] ? ` — recibo: ${links[i]}` : "";
     return `• ${d.data ?? "sem data"} | ${d.categoria} | R$ ${(d.valor ?? 0).toFixed(2)} | ${d.descricao}${link}`;
   });
-  return `Solicitação de reembolso — Eleve\n\nTotal: R$ ${total.toFixed(2)} (${despesas.length} despesa(s))\n\n${linhas.join("\n")}`;
+
+  const assunto = `Solicitação de Reembolso — Departamento — ${fundoLabel}`;
+  const corpo = [
+    `Assunto: Solicitação de reembolso de despesas de departamento — ${fundoLabel}`,
+    "",
+    "Prezada secretaria,",
+    "",
+    "Segue solicitação de reembolso das despesas de departamento relacionadas abaixo, com os respectivos comprovantes.",
+    "",
+    "Dados para o reembolso:",
+    `• Conta para reembolso: ${contaReembolso || "—"}`,
+    `• Centro de custo: ${centroCusto || "—"}`,
+    `• Fundo: ${fundoLabel}`,
+    "",
+    "Despesas:",
+    linhas.join("\n"),
+    "",
+    `Total: R$ ${total.toFixed(2)} (${despesas.length} despesa(s))`,
+  ].join("\n");
+
+  return { assunto, corpo };
 }
 
 /**
@@ -37,7 +69,11 @@ export const enviarParaReembolso = onCall<EnviarReembolsoRequest>(
       throw new HttpsError("unauthenticated", "É preciso estar autenticado no Eleve.");
     }
 
-    const { tipoDespesa, relatorioViagemId, despesaIds } = req.data;
+    const { fundo, tipoDespesa, relatorioViagemId, despesaIds } = req.data;
+
+    if (fundo !== "fundo10" && fundo !== "publicacoes") {
+      throw new HttpsError("invalid-argument", 'Escolha o fundo ("fundo10" ou "publicacoes").');
+    }
 
     const despesas = despesaIds
       ? (await Promise.all(despesaIds.map(buscarDespesa))).filter((d): d is NonNullable<typeof d> => d !== null)
@@ -50,7 +86,8 @@ export const enviarParaReembolso = onCall<EnviarReembolsoRequest>(
     const links = await Promise.all(
       despesas.map((d) => (d.comprovanteStoragePath ? gerarUrlAssinada(d.comprovanteStoragePath) : Promise.resolve("")))
     );
-    const resumo = montarResumo(despesas, links);
+    const configuracoesReembolso = await obterConfiguracoesReembolso();
+    const { assunto, corpo } = montarEmail(despesas, links, fundo, configuracoesReembolso);
 
     if (!config.email.secretaryEmail) {
       throw new HttpsError("failed-precondition", "E-mail da secretária não configurado (SECRETARY_EMAIL).");
@@ -64,8 +101,8 @@ export const enviarParaReembolso = onCall<EnviarReembolsoRequest>(
     await transporter.sendMail({
       from: config.email.fromEmail,
       to: config.email.secretaryEmail,
-      subject: `Reembolso Eleve — ${despesas.length} despesa(s)`,
-      text: resumo,
+      subject: assunto,
+      text: corpo,
     });
 
     await marcarStatusReembolso(despesas.map((d) => d.id), "enviado");

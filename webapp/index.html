@@ -229,6 +229,25 @@
           </div>
         </div>
       </div>
+
+      <div class="card" style="margin-top: 14px;">
+        <div class="card-body">
+          <p class="page-subtitle">Dados fixos usados no e-mail de reembolso — preenche uma vez e fica salvo.</p>
+          <form id="form-config-reembolso" class="form-grid" style="margin-top: 12px;">
+            <div class="field">
+              <label>Conta para reembolso</label>
+              <input type="text" id="cfg-conta" placeholder="Ex: Banco, agência e conta" />
+            </div>
+            <div class="field">
+              <label>Centro de custo</label>
+              <input type="text" id="cfg-centro-custo" placeholder="Ex: 0000-0000" />
+            </div>
+            <div class="form-actions" style="grid-column: 1 / -1; justify-content:flex-start;">
+              <button type="submit" class="btn">Salvar dados</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </section>
   </main>
 </div>
@@ -420,6 +439,18 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-reembolso">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-reembolso-modal" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow">Reembolso</p>
+    <h2>Qual fundo vai cobrir esse reembolso?</h2>
+    <div class="form-actions" style="justify-content:flex-start; flex-wrap:wrap; margin-top: 18px;">
+      <button type="button" class="btn btn-primary" data-fundo="fundo10">Fundo 10</button>
+      <button type="button" class="btn btn-primary" data-fundo="publicacoes">Publicações</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-pendentes">
   <div class="modal modal-lg">
     <button type="button" class="modal-close" id="btn-fechar-pendentes" aria-label="Fechar">&times;</button>
@@ -433,7 +464,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=32"></script>
+<script type="module" src="js/app.js?v=33"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

@@ -11,4 +11,5 @@ export const collections = {
   expenses: db.collection("despesas"),
   travelReports: db.collection("relatoriosViagem"),
   conversationState: db.collection("estadoConversa"),
+  settings: db.collection("configuracoes"),
 };
