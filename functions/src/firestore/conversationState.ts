@@ -1,12 +1,30 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { collections } from "./db";
-import { TipoDespesa } from "../types";
+import { CategoriaDespesa, TipoDespesa } from "../types";
+import { OrigemLancamento } from "./expenses";
+
+/** Dados já extraídos pela IA, guardados enquanto se espera o dono confirmar o lançamento. */
+export interface ResumoDespesaPendente {
+  valor: number;
+  data: string | null;
+  estabelecimento: string | null;
+  descricao: string;
+  categoria: CategoriaDespesa;
+  confiancaBaixa: boolean;
+}
+
+/** Referência a um arquivo do Telegram ainda não baixado (baixa de novo só se confirmado). */
+export interface ArquivoPendente {
+  fileId: string;
+  mimeType?: string;
+}
 
 /**
  * O que falta perguntar ao usuário antes de considerar uma despesa "lançada".
  * O doc id da coleção é o próprio chat ID do Telegram do dono (só ele lança despesas).
  */
 export type Pendencia =
+  | { aguardando: "confirmar_lancamento"; resumo: ResumoDespesaPendente; arquivos: ArquivoPendente[]; origem: OrigemLancamento }
   | { aguardando: "tipo_despesa"; despesaId: string }
   | { aguardando: "relatorio_viagem"; despesaId: string }
   | { aguardando: "nome_relatorio_viagem"; despesaId: string }

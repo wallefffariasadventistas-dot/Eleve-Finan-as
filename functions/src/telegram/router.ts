@@ -4,13 +4,18 @@ import { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from "./types"
 import { extractFromImage, extractFromPdf, extractFromText } from "../ai/expenseExtractor";
 import { transcribeAudio } from "../ai/audioTranscriber";
 import { salvarComprovante } from "../utils/storage";
-import { atualizarDespesa, buscarDespesa, criarDespesa, finalizarDespesa } from "../firestore/expenses";
+import { atualizarDespesa, buscarDespesa, criarDespesa, finalizarDespesa, OrigemLancamento } from "../firestore/expenses";
 import { criarRelatorioViagem, listarRelatoriosAbertos } from "../firestore/travelReports";
-import { definirEstado, limparEstado, obterEstado, Pendencia } from "../firestore/conversationState";
+import {
+  ArquivoPendente,
+  definirEstado,
+  limparEstado,
+  obterEstado,
+  Pendencia,
+  ResumoDespesaPendente,
+} from "../firestore/conversationState";
 import { ArquivoGrupo, registrarArquivoEAguardarSeUltimo } from "../firestore/mediaGroups";
 import { CategoriaDespesa, ExtractedExpense, TipoDespesa } from "../types";
-
-type Origem = "telegram-foto" | "telegram-audio" | "telegram-texto" | "telegram-comprovante";
 
 const TIPO_BOTOES: Array<{ id: `tipo_${TipoDespesa}`; title: string }> = [
   { id: "tipo_viagem", title: "Viagem" },
@@ -62,7 +67,7 @@ async function processarMensagem(msg: TelegramMessage): Promise<void> {
     const maior = msg.photo.reduce((a, b) => (b.width > a.width ? b : a));
     const { buffer, mimeType } = await downloadMedia(maior.file_id);
     const extraido = await extractFromImage(buffer, mimeType, msg.caption);
-    await lancarDespesa(chatId, extraido, buffer, mimeType, "telegram-foto");
+    await lancarDespesa(chatId, extraido, maior.file_id, mimeType, "telegram-foto");
     return;
   }
 
@@ -73,7 +78,7 @@ async function processarMensagem(msg: TelegramMessage): Promise<void> {
       mimeType === "application/pdf"
         ? await extractFromPdf(buffer, msg.caption)
         : await extractFromImage(buffer, mimeType, msg.caption);
-    await lancarDespesa(chatId, extraido, buffer, mimeType, "telegram-comprovante");
+    await lancarDespesa(chatId, extraido, msg.document.file_id, mimeType, "telegram-comprovante");
     return;
   }
 
@@ -81,7 +86,7 @@ async function processarMensagem(msg: TelegramMessage): Promise<void> {
     const { buffer, mimeType } = await downloadMedia(msg.voice.file_id);
     const transcricao = await transcribeAudio(buffer);
     const extraido = await extractFromText(transcricao);
-    await lancarDespesa(chatId, extraido, buffer, mimeType, "telegram-audio");
+    await lancarDespesa(chatId, extraido, msg.voice.file_id, mimeType, "telegram-audio");
     return;
   }
 
@@ -104,9 +109,9 @@ async function tratarTexto(chatId: string, texto: string): Promise<void> {
 async function lancarDespesa(
   chatId: string,
   extraido: ExtractedExpense,
-  arquivo: Buffer | null,
+  fileId: string | null,
   mimeType: string | null,
-  origem: Origem
+  origem: OrigemLancamento
 ): Promise<void> {
   if (extraido.valor === null) {
     await sendText(
@@ -117,18 +122,39 @@ async function lancarDespesa(
   }
 
   const categoria: CategoriaDespesa = extraido.categoriaSugerida ?? "outros";
-  await criarDespesaComArquivos(
+  const resumo: ResumoDespesaPendente = {
+    valor: extraido.valor,
+    data: extraido.data,
+    estabelecimento: extraido.estabelecimento,
+    descricao: extraido.descricao,
+    categoria,
+    confiancaBaixa: extraido.confiancaBaixa,
+  };
+  const arquivos: ArquivoPendente[] = fileId && mimeType ? [{ fileId, mimeType }] : [];
+  await confirmarAntesDeRegistrar(chatId, resumo, arquivos, origem);
+}
+
+/**
+ * Mostra um resumo do que a IA leu e espera o dono tocar em Continuar ou Cancelar antes de
+ * criar a despesa de fato — dá uma chance de desistir se percebeu que mandou o comprovante
+ * errado. Os arquivos ainda não são baixados de novo aqui: só o file_id do Telegram é
+ * guardado, e o download real só acontece se o lançamento for confirmado.
+ */
+async function confirmarAntesDeRegistrar(
+  chatId: string,
+  resumo: ResumoDespesaPendente,
+  arquivos: ArquivoPendente[],
+  origem: OrigemLancamento
+): Promise<void> {
+  await definirEstado(chatId, { aguardando: "confirmar_lancamento", resumo, arquivos, origem });
+  const detalhes = [resumo.estabelecimento, resumo.data ? formatarDataBR(resumo.data) : null].filter(Boolean).join(" · ");
+  await sendButtons(
     chatId,
-    {
-      valor: extraido.valor,
-      data: extraido.data,
-      estabelecimento: extraido.estabelecimento,
-      descricao: extraido.descricao,
-      categoria,
-      confiancaBaixa: extraido.confiancaBaixa,
-    },
-    arquivo && mimeType ? [{ buffer: arquivo, mimeType }] : [],
-    origem
+    `Encontrei: R$ ${resumo.valor.toFixed(2)}${detalhes ? ` (${detalhes})` : ""}\n${resumo.descricao}\n\nQuer registrar essa despesa?`,
+    [
+      { id: "confirmar_lancamento_sim", title: "✅ Continuar" },
+      { id: "confirmar_lancamento_nao", title: "❌ Cancelar" },
+    ]
   );
 }
 
@@ -157,13 +183,11 @@ async function processarArquivoAgrupado(chatId: string, msg: TelegramMessage, me
 
 /** Lê cada comprovante do álbum com a IA, soma os valores e lança tudo como UMA despesa só. */
 async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo[]): Promise<void> {
-  const baixados: Array<{ buffer: Buffer; mimeType: string }> = [];
   const extraidos: ExtractedExpense[] = [];
 
   for (const arq of arquivosGrupo) {
     const { buffer, mimeType: mimeBaixado } = await downloadMedia(arq.fileId);
     const mimeType = arq.mimeType ?? mimeBaixado;
-    baixados.push({ buffer, mimeType });
     const extraido =
       mimeType === "application/pdf"
         ? await extractFromPdf(buffer, arq.caption)
@@ -185,26 +209,23 @@ async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo
     extraidos.length > 1 ? `${primeiro.descricao} (+ ${extraidos.length - 1} comprovante(s))` : primeiro.descricao;
   const temFoto = arquivosGrupo.some((a) => a.tipo === "photo");
 
-  await criarDespesaComArquivos(
-    chatId,
-    { valor: valorTotal, data: primeiro.data, estabelecimento: primeiro.estabelecimento, descricao, categoria, confiancaBaixa },
-    baixados,
-    temFoto ? "telegram-foto" : "telegram-comprovante"
-  );
+  const resumo: ResumoDespesaPendente = {
+    valor: valorTotal,
+    data: primeiro.data,
+    estabelecimento: primeiro.estabelecimento,
+    descricao,
+    categoria,
+    confiancaBaixa,
+  };
+  const arquivosPendentes: ArquivoPendente[] = arquivosGrupo.map((a) => ({ fileId: a.fileId, mimeType: a.mimeType }));
+  await confirmarAntesDeRegistrar(chatId, resumo, arquivosPendentes, temFoto ? "telegram-foto" : "telegram-comprovante");
 }
 
 async function criarDespesaComArquivos(
   chatId: string,
-  dados: {
-    valor: number;
-    data: string | null;
-    estabelecimento: string | null;
-    descricao: string;
-    categoria: CategoriaDespesa;
-    confiancaBaixa: boolean;
-  },
+  dados: ResumoDespesaPendente,
   arquivos: Array<{ buffer: Buffer; mimeType: string }>,
-  origem: Origem
+  origem: OrigemLancamento
 ): Promise<void> {
   const despesaId = await criarDespesa({
     valor: dados.valor,
@@ -370,6 +391,29 @@ async function tratarResposta(
   pendencia: NonNullable<Pendencia>
 ): Promise<void> {
   const { respostaId, respostaTexto } = resposta;
+
+  if (pendencia.aguardando === "confirmar_lancamento") {
+    if (respostaId === "confirmar_lancamento_nao") {
+      await limparEstado(chatId);
+      await sendText(chatId, "Cancelado. Nenhuma despesa foi registrada.");
+      return;
+    }
+    if (respostaId === "confirmar_lancamento_sim") {
+      await limparEstado(chatId);
+      const arquivosBaixados: Array<{ buffer: Buffer; mimeType: string }> = [];
+      for (const arq of pendencia.arquivos) {
+        const { buffer, mimeType: mimeBaixado } = await downloadMedia(arq.fileId);
+        arquivosBaixados.push({ buffer, mimeType: arq.mimeType ?? mimeBaixado });
+      }
+      await criarDespesaComArquivos(chatId, pendencia.resumo, arquivosBaixados, pendencia.origem);
+      return;
+    }
+    await sendButtons(chatId, "Quer registrar essa despesa?", [
+      { id: "confirmar_lancamento_sim", title: "✅ Continuar" },
+      { id: "confirmar_lancamento_nao", title: "❌ Cancelar" },
+    ]);
+    return;
+  }
 
   if (pendencia.aguardando === "tipo_despesa") {
     const tipo = (respostaId?.replace("tipo_", "") ?? mapearTipoPorTexto(respostaTexto)) as TipoDespesa | null;
