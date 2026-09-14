@@ -184,10 +184,14 @@ async function processarArquivoAgrupado(chatId: string, msg: TelegramMessage, me
 /** Lê cada comprovante do álbum com a IA, soma os valores e lança tudo como UMA despesa só. */
 async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo[]): Promise<void> {
   const extraidos: ExtractedExpense[] = [];
+  // Fotos do Telegram não vêm com mime_type (só documentos) — guarda o tipo já resolvido
+  // (pela extensão do arquivo baixado) pra não gravar "undefined" no Firestore depois.
+  const mimeTypesResolvidos: string[] = [];
 
   for (const arq of arquivosGrupo) {
     const { buffer, mimeType: mimeBaixado } = await downloadMedia(arq.fileId);
     const mimeType = arq.mimeType ?? mimeBaixado;
+    mimeTypesResolvidos.push(mimeType);
     const extraido =
       mimeType === "application/pdf"
         ? await extractFromPdf(buffer, arq.caption)
@@ -217,7 +221,7 @@ async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo
     categoria,
     confiancaBaixa,
   };
-  const arquivosPendentes: ArquivoPendente[] = arquivosGrupo.map((a) => ({ fileId: a.fileId, mimeType: a.mimeType }));
+  const arquivosPendentes: ArquivoPendente[] = arquivosGrupo.map((a, i) => ({ fileId: a.fileId, mimeType: mimeTypesResolvidos[i] }));
   await confirmarAntesDeRegistrar(chatId, resumo, arquivosPendentes, temFoto ? "telegram-foto" : "telegram-comprovante");
 }
 
