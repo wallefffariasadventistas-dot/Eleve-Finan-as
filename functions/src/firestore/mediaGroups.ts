@@ -15,7 +15,11 @@ interface GrupoMidia {
   processado: boolean;
 }
 
-const JANELA_ESPERA_MS = 2500;
+// 2.5s era curto demais: numa conexão mais lenta, a segunda foto de um álbum pode levar vários
+// segundos a mais que a primeira pra terminar de subir e chegar no webhook — nesse caso a primeira
+// foto "vencia" sozinha e a segunda chegava tarde demais, sendo descartada como se fosse resposta
+// a uma pergunta (perdendo o comprovante da soma). Uma janela mais folgada reduz bastante o risco.
+const JANELA_ESPERA_MS = 6000;
 
 /**
  * O Telegram manda cada foto de um álbum como uma mensagem separada, todas com o mesmo

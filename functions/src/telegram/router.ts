@@ -59,6 +59,16 @@ async function processarMensagem(msg: TelegramMessage): Promise<void> {
   // "processando_ia" é uma trava interna (IA ainda analisando um comprovante anterior), não
   // uma pergunta esperando resposta — só as demais pendências tratam a mensagem como resposta.
   if (pendencia && pendencia.aguardando !== "processando_ia") {
+    if (!msg.text && (msg.photo?.length || msg.document || msg.voice)) {
+      // Comprovante chegando enquanto ainda esperamos resposta de uma pergunta anterior (ex:
+      // uma foto de álbum que demorou mais pra subir) — não dá pra processar agora, e tratar
+      // como se fosse texto de resposta só confundiria (e perderia o arquivo sem avisar).
+      await sendText(
+        chatId,
+        "Ainda estou esperando sua resposta da pergunta anterior. Responda ela primeiro — se esse arquivo era da mesma despesa, cancele e mande os comprovantes juntos de novo."
+      );
+      return;
+    }
     await tratarResposta(chatId, { respostaTexto: msg.text?.trim() }, pendencia);
     return;
   }
