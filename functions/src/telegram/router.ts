@@ -393,12 +393,15 @@ async function tratarResposta(
   const { respostaId, respostaTexto } = resposta;
 
   if (pendencia.aguardando === "confirmar_lancamento") {
-    if (respostaId === "confirmar_lancamento_nao") {
+    const cancelou = respostaId === "confirmar_lancamento_nao" || (!!respostaTexto && /^(n[ãa]o|cancela)/i.test(respostaTexto));
+    if (cancelou) {
       await limparEstado(chatId);
       await sendText(chatId, "Cancelado. Nenhuma despesa foi registrada.");
       return;
     }
-    if (respostaId === "confirmar_lancamento_sim") {
+    const confirmou =
+      respostaId === "confirmar_lancamento_sim" || (!!respostaTexto && /^(sim|confirma|continua|ok\b|certo)/i.test(respostaTexto));
+    if (confirmou) {
       await limparEstado(chatId);
       const arquivosBaixados: Array<{ buffer: Buffer; mimeType: string }> = [];
       for (const arq of pendencia.arquivos) {
@@ -408,7 +411,7 @@ async function tratarResposta(
       await criarDespesaComArquivos(chatId, pendencia.resumo, arquivosBaixados, pendencia.origem);
       return;
     }
-    await sendButtons(chatId, "Quer registrar essa despesa?", [
+    await sendButtons(chatId, "Não entendi. Quer registrar essa despesa?", [
       { id: "confirmar_lancamento_sim", title: "✅ Continuar" },
       { id: "confirmar_lancamento_nao", title: "❌ Cancelar" },
     ]);

@@ -40,7 +40,7 @@ export const telegramWebhook = onRequest(
       console.log(
         `[diag] update_id=${update.update_id} tipo=${msg ? "message" : update.callback_query ? "callback" : "?"} ` +
           `media_group_id=${msg?.media_group_id ?? "-"} tem_photo=${!!msg?.photo?.length} tem_document=${!!msg?.document} ` +
-          `callback_data=${update.callback_query?.data ?? "-"}`
+          `callback_data=${update.callback_query?.data ?? "-"} texto=${JSON.stringify(msg?.text?.slice(0, 80) ?? "-")}`
       );
       await processarUpdate(update);
     } catch (err) {
