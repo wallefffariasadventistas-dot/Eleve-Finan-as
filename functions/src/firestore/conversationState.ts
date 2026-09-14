@@ -1,5 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore";
-import { collections } from "./db";
+import { collections, db } from "./db";
 import { CategoriaDespesa, TipoDespesa } from "../types";
 import { OrigemLancamento } from "./expenses";
 
@@ -26,6 +26,7 @@ export interface ArquivoPendente {
  * O doc id da coleção é o próprio chat ID do Telegram do dono (só ele lança despesas).
  */
 export type Pendencia =
+  | { aguardando: "processando_ia"; mediaGroupId: string | null }
   | { aguardando: "confirmar_lancamento"; resumo: ResumoDespesaPendente; arquivos: ArquivoPendente[]; origem: OrigemLancamento }
   | { aguardando: "tipo_despesa"; despesaId: string }
   | { aguardando: "relatorio_viagem"; despesaId: string }
@@ -56,4 +57,32 @@ export async function definirEstado(numero: string, pendencia: Pendencia): Promi
 
 export async function limparEstado(numero: string): Promise<void> {
   await definirEstado(numero, null);
+}
+
+/**
+ * Tenta "travar" a conversa pra começar a processar um novo comprovante com a IA (que demora
+ * alguns segundos): evita que dois comprovantes mandados quase juntos (mas fora do mesmo álbum
+ * do Telegram) virem duas despesas em paralelo brigando pelo mesmo estado de conversa.
+ * Cada mensagem de um MESMO álbum pode "entrar" na trava já aberta por outra mensagem do
+ * mesmo álbum (mediaGroupId igual); qualquer outro envio nesse meio tempo é recusado.
+ */
+export async function tentarIniciarProcessamento(chatId: string, mediaGroupId: string | null): Promise<boolean> {
+  const ref = collections.conversationState.doc(chatId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const atual = snap.exists ? (snap.data() as EstadoConversa).pendencia : null;
+
+    if (atual && atual.aguardando === "processando_ia" && mediaGroupId !== null && atual.mediaGroupId === mediaGroupId) {
+      return true; // outra mensagem do mesmo álbum já travou — pode prosseguir junto
+    }
+    if (atual) {
+      return false; // ocupado com outro lançamento em andamento
+    }
+
+    tx.set(ref, {
+      pendencia: { aguardando: "processando_ia", mediaGroupId },
+      atualizadoEm: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
 }

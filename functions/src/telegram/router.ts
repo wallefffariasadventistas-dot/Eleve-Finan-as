@@ -13,6 +13,7 @@ import {
   obterEstado,
   Pendencia,
   ResumoDespesaPendente,
+  tentarIniciarProcessamento,
 } from "../firestore/conversationState";
 import { ArquivoGrupo, registrarArquivoEAguardarSeUltimo } from "../firestore/mediaGroups";
 import { CategoriaDespesa, ExtractedExpense, TipoDespesa } from "../types";
@@ -41,7 +42,9 @@ async function processarCallback(callback: TelegramCallbackQuery): Promise<void>
   if (chatId !== config.telegram.ownerChatId) return;
 
   const pendencia = await obterEstado(chatId);
-  if (!pendencia) return;
+  // Botão de uma pergunta antiga, tocado enquanto a IA já está analisando outro comprovante —
+  // ignora (não há resposta válida a dar nesse estado).
+  if (!pendencia || pendencia.aguardando === "processando_ia") return;
   await tratarResposta(chatId, { respostaId: callback.data }, pendencia);
 }
 
@@ -53,45 +56,91 @@ async function processarMensagem(msg: TelegramMessage): Promise<void> {
   }
 
   const pendencia = await obterEstado(chatId);
-  if (pendencia) {
+  // "processando_ia" é uma trava interna (IA ainda analisando um comprovante anterior), não
+  // uma pergunta esperando resposta — só as demais pendências tratam a mensagem como resposta.
+  if (pendencia && pendencia.aguardando !== "processando_ia") {
     await tratarResposta(chatId, { respostaTexto: msg.text?.trim() }, pendencia);
     return;
   }
 
+  const avisarOcupado = () =>
+    sendText(chatId, "Ainda estou processando o comprovante anterior, me dá só um instante 🙂");
+
+  // Se algo quebrar no meio da análise da IA, libera a trava "processando_ia" antes de propagar
+  // o erro — senão o bot fica travado achando que ainda está ocupado até alguém mexer no Firestore.
+  const comTravaLiberadaNoErro = async (tarefa: () => Promise<void>): Promise<void> => {
+    try {
+      await tarefa();
+    } catch (err) {
+      await limparEstado(chatId).catch(() => {});
+      throw err;
+    }
+  };
+
   if (msg.media_group_id && (msg.photo?.length || msg.document)) {
-    await processarArquivoAgrupado(chatId, msg, msg.media_group_id);
+    // Cada foto de um álbum chega como uma mensagem separada — a trava usa o mediaGroupId
+    // pra deixar todas elas passarem juntas, mesmo que outra já tenha travado primeiro.
+    if (!(await tentarIniciarProcessamento(chatId, msg.media_group_id))) {
+      await avisarOcupado();
+      return;
+    }
+    await comTravaLiberadaNoErro(() => processarArquivoAgrupado(chatId, msg, msg.media_group_id!));
     return;
   }
 
   if (msg.photo && msg.photo.length > 0) {
-    const maior = msg.photo.reduce((a, b) => (b.width > a.width ? b : a));
-    const { buffer, mimeType } = await downloadMedia(maior.file_id);
-    const extraido = await extractFromImage(buffer, mimeType, msg.caption);
-    await lancarDespesa(chatId, extraido, maior.file_id, mimeType, "telegram-foto");
+    if (!(await tentarIniciarProcessamento(chatId, null))) {
+      await avisarOcupado();
+      return;
+    }
+    await comTravaLiberadaNoErro(async () => {
+      const maior = msg.photo!.reduce((a, b) => (b.width > a.width ? b : a));
+      const { buffer, mimeType } = await downloadMedia(maior.file_id);
+      const extraido = await extractFromImage(buffer, mimeType, msg.caption);
+      await lancarDespesa(chatId, extraido, maior.file_id, mimeType, "telegram-foto");
+    });
     return;
   }
 
   if (msg.document) {
-    const { buffer, mimeType: mimeBaixado } = await downloadMedia(msg.document.file_id);
-    const mimeType = msg.document.mime_type ?? mimeBaixado;
-    const extraido =
-      mimeType === "application/pdf"
-        ? await extractFromPdf(buffer, msg.caption)
-        : await extractFromImage(buffer, mimeType, msg.caption);
-    await lancarDespesa(chatId, extraido, msg.document.file_id, mimeType, "telegram-comprovante");
+    if (!(await tentarIniciarProcessamento(chatId, null))) {
+      await avisarOcupado();
+      return;
+    }
+    await comTravaLiberadaNoErro(async () => {
+      const documento = msg.document!;
+      const { buffer, mimeType: mimeBaixado } = await downloadMedia(documento.file_id);
+      const mimeType = documento.mime_type ?? mimeBaixado;
+      const extraido =
+        mimeType === "application/pdf"
+          ? await extractFromPdf(buffer, msg.caption)
+          : await extractFromImage(buffer, mimeType, msg.caption);
+      await lancarDespesa(chatId, extraido, documento.file_id, mimeType, "telegram-comprovante");
+    });
     return;
   }
 
   if (msg.voice) {
-    const { buffer, mimeType } = await downloadMedia(msg.voice.file_id);
-    const transcricao = await transcribeAudio(buffer);
-    const extraido = await extractFromText(transcricao);
-    await lancarDespesa(chatId, extraido, msg.voice.file_id, mimeType, "telegram-audio");
+    if (!(await tentarIniciarProcessamento(chatId, null))) {
+      await avisarOcupado();
+      return;
+    }
+    await comTravaLiberadaNoErro(async () => {
+      const voz = msg.voice!;
+      const { buffer, mimeType } = await downloadMedia(voz.file_id);
+      const transcricao = await transcribeAudio(buffer);
+      const extraido = await extractFromText(transcricao);
+      await lancarDespesa(chatId, extraido, voz.file_id, mimeType, "telegram-audio");
+    });
     return;
   }
 
   if (msg.text) {
-    await tratarTexto(chatId, msg.text);
+    if (!(await tentarIniciarProcessamento(chatId, null))) {
+      await avisarOcupado();
+      return;
+    }
+    await comTravaLiberadaNoErro(() => tratarTexto(chatId, msg.text!));
     return;
   }
 
@@ -114,6 +163,7 @@ async function lancarDespesa(
   origem: OrigemLancamento
 ): Promise<void> {
   if (extraido.valor === null) {
+    await limparEstado(chatId); // libera a trava de "processando_ia" — senão o bot fica achando que ainda está ocupado
     await sendText(
       chatId,
       "Não consegui identificar o valor dessa despesa. Pode me enviar de novo ou escrever o valor?"
@@ -205,6 +255,7 @@ async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo
 
   const comValor = extraidos.filter((e) => e.valor !== null);
   if (comValor.length === 0) {
+    await limparEstado(chatId); // libera a trava de "processando_ia" — senão o bot fica achando que ainda está ocupado
     await sendText(chatId, "Não consegui identificar o valor em nenhum dos comprovantes enviados. Pode mandar de novo?");
     return;
   }
