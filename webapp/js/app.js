@@ -310,8 +310,16 @@ document.addEventListener("click", async (e) => {
     e.stopPropagation();
     const d = state.despesas.find((x) => x.id === verBtn.dataset.verComprovante);
     if (!d) return;
-    const url = await getDownloadURL(ref(storage, d.comprovanteStoragePath));
-    window.open(url, "_blank");
+    // Abre a aba já no clique (senão o navegador bloqueia como pop-up depois do await)
+    // e só preenche a URL quando ela chegar.
+    const janela = window.open("", "_blank");
+    try {
+      const url = await getDownloadURL(ref(storage, d.comprovanteStoragePath));
+      if (janela) janela.location.href = url;
+    } catch (err) {
+      if (janela) janela.close();
+      toast("Erro ao abrir comprovante: " + err.message, true);
+    }
     return;
   }
 
@@ -341,8 +349,14 @@ document.addEventListener("click", async (e) => {
     e.stopPropagation();
     const n = state.notasFixas.find((x) => x.id === verNotaBtn.dataset.verNota);
     if (!n) return;
-    const url = await getDownloadURL(ref(storage, n.comprovanteStoragePath));
-    window.open(url, "_blank");
+    const janela = window.open("", "_blank");
+    try {
+      const url = await getDownloadURL(ref(storage, n.comprovanteStoragePath));
+      if (janela) janela.location.href = url;
+    } catch (err) {
+      if (janela) janela.close();
+      toast("Erro ao abrir comprovante: " + err.message, true);
+    }
     return;
   }
 
