@@ -370,17 +370,6 @@ function formatarDataBR(iso: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
-function parsearDataDigitada(texto: string): string | null {
-  const limpo = texto.trim();
-  let m = limpo.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = limpo.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  m = limpo.match(/^(\d{1,2})[/-](\d{1,2})$/);
-  if (m) return `${dataDeHojeISO().slice(0, 4)}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  return null;
-}
-
 async function perguntarData(
   chatId: string,
   despesaId: string,
@@ -395,7 +384,7 @@ async function perguntarData(
     botoes.push({ id: "data_extraida", title: `📅 ${formatarDataBR(despesa.data)}` });
   }
   botoes.push({ id: "data_hoje", title: "📅 Hoje" });
-  await sendButtons(chatId, "Qual a data dessa despesa? Toque numa opção ou digite (ex: 15/03/2026).", botoes);
+  await sendButtons(chatId, "Qual a data dessa despesa? Toque numa opção.", botoes);
 }
 
 async function perguntarTitulo(
@@ -542,14 +531,9 @@ async function tratarResposta(
     } else if (respostaId === "data_extraida") {
       const despesa = await buscarDespesa(pendencia.despesaId);
       novaData = despesa?.data ?? dataDeHojeISO();
-    } else if (respostaTexto) {
-      novaData = parsearDataDigitada(respostaTexto);
-      if (!novaData) {
-        await sendText(chatId, "Não entendi essa data. Digite no formato 15/03/2026, ou toque numa opção.");
-        return;
-      }
     } else {
-      await sendText(chatId, "Qual a data dessa despesa?");
+      // Só botões nessa pergunta — reenvia as opções em vez de tentar interpretar texto digitado.
+      await perguntarData(chatId, pendencia.despesaId, pendencia.tipoDespesa, pendencia.relatorioViagemId);
       return;
     }
     await atualizarDespesa(pendencia.despesaId, { data: novaData });
