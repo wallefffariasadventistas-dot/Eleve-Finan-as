@@ -459,6 +459,15 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-recibos">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-recibos" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow">Comprovantes</p>
+    <h2 id="modal-recibos-titulo">Recibos dessa despesa</h2>
+    <div id="recibos-lista" class="form-actions" style="justify-content:flex-start; flex-wrap:wrap; margin-top: 18px;"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-pendentes">
   <div class="modal modal-lg">
     <button type="button" class="modal-close" id="btn-fechar-pendentes" aria-label="Fechar">&times;</button>
@@ -472,7 +481,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=34"></script>
+<script type="module" src="js/app.js?v=35"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

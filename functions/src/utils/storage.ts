@@ -10,14 +10,19 @@ const EXT_BY_MIME: Record<string, string> = {
   "audio/opus": "opus",
 };
 
-/** Salva o comprovante original (foto, áudio ou PDF) na nuvem e devolve o caminho no bucket. */
+/**
+ * Salva o comprovante original (foto, áudio ou PDF) na nuvem e devolve o caminho no bucket.
+ * `sufixo` diferencia comprovantes quando mais de um é enviado pra mesma despesa
+ * (ex: "-2", "-3" — o primeiro fica sem sufixo, como sempre foi).
+ */
 export async function salvarComprovante(
   despesaId: string,
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  sufixo = ""
 ): Promise<string> {
   const ext = EXT_BY_MIME[mimeType] ?? "bin";
-  const path = `${config.storageBucketReceiptsPrefix}/${despesaId}/original.${ext}`;
+  const path = `${config.storageBucketReceiptsPrefix}/${despesaId}/original${sufixo}.${ext}`;
   const file = bucket.file(path);
   await file.save(buffer, { metadata: { contentType: mimeType } });
   return path;

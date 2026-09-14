@@ -298,13 +298,56 @@ function linhaDespesaResumida(d) {
 }
 
 // ---------- AÇÕES COMPARTILHADAS (ver recibo / editar / excluir) ----------
+// Junta o comprovante principal com os extras (quando várias fotos/PDFs vieram juntos
+// pelo Telegram pra mesma despesa) numa lista só.
+function recibosDe(d) {
+  const lista = [];
+  if (d.comprovanteStoragePath) lista.push(d.comprovanteStoragePath);
+  if (Array.isArray(d.comprovantesExtras)) lista.push(...d.comprovantesExtras);
+  return lista;
+}
+
 function botoesAcaoDespesa(d) {
+  const recibos = recibosDe(d);
   return `<div class="row-actions">
-    ${d.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo</button>` : ""}
+    ${recibos.length ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo${recibos.length > 1 ? ` (${recibos.length})` : ""}</button>` : ""}
     <button class="btn btn-sm" data-editar-despesa="${d.id}">Editar</button>
     <button class="btn btn-sm btn-danger" data-excluir-despesa="${d.id}">Excluir</button>
   </div>`;
 }
+
+async function abrirReciboUnico(storagePath) {
+  const janela = window.open("", "_blank");
+  try {
+    const url = await getDownloadURL(ref(storage, storagePath));
+    if (janela) janela.location.href = url;
+  } catch (err) {
+    if (janela) janela.close();
+    toast("Erro ao abrir comprovante: " + err.message, true);
+  }
+}
+
+const modalRecibos = document.getElementById("modal-recibos");
+function abrirModalRecibos(d, recibos) {
+  document.getElementById("modal-recibos-titulo").textContent = d.descricao || "Recibos dessa despesa";
+  document.getElementById("recibos-lista").innerHTML = recibos
+    .map((_, i) => `<button type="button" class="btn" data-recibo-index="${i}">Recibo ${i + 1}</button>`)
+    .join("");
+  document.querySelectorAll("#recibos-lista [data-recibo-index]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirReciboUnico(recibos[Number(btn.dataset.reciboIndex)]));
+  });
+  modalRecibos.classList.add("show");
+}
+document.getElementById("btn-fechar-recibos").addEventListener("click", () => modalRecibos.classList.remove("show"));
+[modalRecibos].forEach((overlay) => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.querySelector(".modal-close").click();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (modalRecibos.classList.contains("show")) document.getElementById("btn-fechar-recibos").click();
+});
 
 // Delegação de evento num único listener fixo em document: as tabelas de despesas são
 // recriadas via innerHTML toda vez que qualquer despesa muda em qualquer área do sistema,
@@ -317,15 +360,15 @@ document.addEventListener("click", async (e) => {
     e.stopPropagation();
     const d = state.despesas.find((x) => x.id === verBtn.dataset.verComprovante);
     if (!d) return;
-    // Abre a aba já no clique (senão o navegador bloqueia como pop-up depois do await)
-    // e só preenche a URL quando ela chegar.
-    const janela = window.open("", "_blank");
-    try {
-      const url = await getDownloadURL(ref(storage, d.comprovanteStoragePath));
-      if (janela) janela.location.href = url;
-    } catch (err) {
-      if (janela) janela.close();
-      toast("Erro ao abrir comprovante: " + err.message, true);
+    const recibos = recibosDe(d);
+    if (recibos.length === 0) return;
+    if (recibos.length === 1) {
+      // Continua abrindo direto quando só tem um — sem passo extra de clicar numa lista.
+      abrirReciboUnico(recibos[0]);
+    } else {
+      // Vários comprovantes: cada um precisa do próprio clique do usuário pra abrir a aba
+      // (senão o navegador bloqueia como pop-up depois do segundo window.open seguido).
+      abrirModalRecibos(d, recibos);
     }
     return;
   }
@@ -1418,15 +1461,15 @@ const enviarParaReembolso = httpsCallable(functions, "enviarParaReembolso");
 const baixarComprovantesZipCallable = httpsCallable(functions, "baixarComprovantesZip");
 
 async function baixarComprovantesZip(despesas, nomeBase) {
-  const comComprovante = despesas.filter((d) => d.comprovanteStoragePath);
-  if (comComprovante.length === 0) {
+  const todosCaminhos = despesas.flatMap(recibosDe);
+  if (todosCaminhos.length === 0) {
     toast("Nenhum comprovante anexado nessas despesas.", true);
     return;
   }
-  toast(`Preparando ${comComprovante.length} comprovante(s)...`);
+  toast(`Preparando ${todosCaminhos.length} comprovante(s)...`);
   try {
     const { data } = await baixarComprovantesZipCallable({
-      storagePaths: comComprovante.map((d) => d.comprovanteStoragePath),
+      storagePaths: todosCaminhos,
     });
     const binario = atob(data.base64);
     const bytes = new Uint8Array(binario.length);

@@ -44,6 +44,8 @@ export interface TelegramMessage {
   photo?: TelegramPhotoSize[];
   document?: TelegramDocument;
   voice?: TelegramVoice;
+  /** Presente quando a mensagem faz parte de um álbum (várias fotos/PDFs enviados juntos). */
+  media_group_id?: string;
 }
 
 export interface TelegramCallbackQuery {

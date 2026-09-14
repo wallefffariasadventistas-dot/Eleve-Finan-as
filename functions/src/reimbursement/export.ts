@@ -23,15 +23,17 @@ interface EnviarReembolsoRequest {
 
 function montarEmail(
   despesas: Awaited<ReturnType<typeof listarPendentesDeReembolso>>,
-  links: string[],
+  linksPorDespesa: string[][],
   fundo: Fundo,
   { banco, contaReembolso, chavePix, centroCusto }: { banco: string; contaReembolso: string; chavePix: string; centroCusto: string }
 ): { assunto: string; corpo: string } {
   const total = despesas.reduce((soma, d) => soma + (d.valor ?? 0), 0);
   const fundoLabel = FUNDO_LABEL[fundo];
   const linhas = despesas.map((d, i) => {
-    const link = links[i] ? ` — recibo: ${links[i]}` : "";
-    return `• ${d.data ?? "sem data"} | ${d.categoria} | R$ ${(d.valor ?? 0).toFixed(2)} | ${d.descricao}${link}`;
+    const links = linksPorDespesa[i];
+    const rotulo = links.length > 1 ? "recibos" : "recibo";
+    const linkTexto = links.length ? ` — ${rotulo}: ${links.join(", ")}` : "";
+    return `• ${d.data ?? "sem data"} | ${d.categoria} | R$ ${(d.valor ?? 0).toFixed(2)} | ${d.descricao}${linkTexto}`;
   });
 
   const assunto = `Solicitação de Reembolso — Departamento — ${fundoLabel}`;
@@ -85,11 +87,16 @@ export const enviarParaReembolso = onCall<EnviarReembolsoRequest>(
       throw new HttpsError("not-found", "Nenhuma despesa pendente de reembolso encontrada.");
     }
 
-    const links = await Promise.all(
-      despesas.map((d) => (d.comprovanteStoragePath ? gerarUrlAssinada(d.comprovanteStoragePath) : Promise.resolve("")))
+    const linksPorDespesa = await Promise.all(
+      despesas.map((d) => {
+        const caminhos = [d.comprovanteStoragePath, ...(d.comprovantesExtras ?? [])].filter(
+          (p): p is string => !!p
+        );
+        return Promise.all(caminhos.map((p) => gerarUrlAssinada(p)));
+      })
     );
     const configuracoesReembolso = await obterConfiguracoesReembolso();
-    const { assunto, corpo } = montarEmail(despesas, links, fundo, configuracoesReembolso);
+    const { assunto, corpo } = montarEmail(despesas, linksPorDespesa, fundo, configuracoesReembolso);
 
     if (!config.email.secretaryEmail) {
       throw new HttpsError("failed-precondition", "E-mail da secretária não configurado (SECRETARY_EMAIL).");

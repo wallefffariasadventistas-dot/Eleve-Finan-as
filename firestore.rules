@@ -40,5 +40,10 @@ service cloud.firestore {
     match /estadoConversa/{numero} {
       allow read, write: if false;
     }
+
+    // Controle interno de álbuns de fotos enviados juntos no Telegram — só o backend usa.
+    match /gruposMidiaTelegram/{grupoId} {
+      allow read, write: if false;
+    }
   }
 }

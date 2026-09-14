@@ -7,7 +7,10 @@ import { salvarComprovante } from "../utils/storage";
 import { atualizarDespesa, buscarDespesa, criarDespesa, finalizarDespesa } from "../firestore/expenses";
 import { criarRelatorioViagem, listarRelatoriosAbertos } from "../firestore/travelReports";
 import { definirEstado, limparEstado, obterEstado, Pendencia } from "../firestore/conversationState";
+import { ArquivoGrupo, registrarArquivoEAguardarSeUltimo } from "../firestore/mediaGroups";
 import { CategoriaDespesa, ExtractedExpense, TipoDespesa } from "../types";
+
+type Origem = "telegram-foto" | "telegram-audio" | "telegram-texto" | "telegram-comprovante";
 
 const TIPO_BOTOES: Array<{ id: `tipo_${TipoDespesa}`; title: string }> = [
   { id: "tipo_viagem", title: "Viagem" },
@@ -47,6 +50,11 @@ async function processarMensagem(msg: TelegramMessage): Promise<void> {
   const pendencia = await obterEstado(chatId);
   if (pendencia) {
     await tratarResposta(chatId, { respostaTexto: msg.text?.trim() }, pendencia);
+    return;
+  }
+
+  if (msg.media_group_id && (msg.photo?.length || msg.document)) {
+    await processarArquivoAgrupado(chatId, msg, msg.media_group_id);
     return;
   }
 
@@ -98,7 +106,7 @@ async function lancarDespesa(
   extraido: ExtractedExpense,
   arquivo: Buffer | null,
   mimeType: string | null,
-  origem: "telegram-foto" | "telegram-audio" | "telegram-texto" | "telegram-comprovante"
+  origem: Origem
 ): Promise<void> {
   if (extraido.valor === null) {
     await sendText(
@@ -109,13 +117,101 @@ async function lancarDespesa(
   }
 
   const categoria: CategoriaDespesa = extraido.categoriaSugerida ?? "outros";
+  await criarDespesaComArquivos(
+    chatId,
+    {
+      valor: extraido.valor,
+      data: extraido.data,
+      estabelecimento: extraido.estabelecimento,
+      descricao: extraido.descricao,
+      categoria,
+      confiancaBaixa: extraido.confiancaBaixa,
+    },
+    arquivo && mimeType ? [{ buffer: arquivo, mimeType }] : [],
+    origem
+  );
+}
 
+/**
+ * Reúne cada foto de um álbum enviado junto no Telegram: cada mensagem chama isso, mas só a
+ * última (depois de uma pequena espera sem novas chegadas) processa o grupo inteiro de uma vez.
+ */
+async function processarArquivoAgrupado(chatId: string, msg: TelegramMessage, mediaGroupId: string): Promise<void> {
+  let arquivo: ArquivoGrupo;
+  if (msg.photo && msg.photo.length > 0) {
+    const maior = msg.photo.reduce((a, b) => (b.width > a.width ? b : a));
+    arquivo = { fileId: maior.file_id, tipo: "photo" };
+  } else if (msg.document) {
+    arquivo = { fileId: msg.document.file_id, tipo: "document" };
+    if (msg.document.mime_type) arquivo.mimeType = msg.document.mime_type;
+  } else {
+    return;
+  }
+  if (msg.caption) arquivo.caption = msg.caption;
+
+  const arquivos = await registrarArquivoEAguardarSeUltimo(mediaGroupId, chatId, arquivo);
+  if (!arquivos) return; // não foi a última mensagem do álbum — quem processa é outra invocação
+
+  await lancarDespesaMultipla(chatId, arquivos);
+}
+
+/** Lê cada comprovante do álbum com a IA, soma os valores e lança tudo como UMA despesa só. */
+async function lancarDespesaMultipla(chatId: string, arquivosGrupo: ArquivoGrupo[]): Promise<void> {
+  const baixados: Array<{ buffer: Buffer; mimeType: string }> = [];
+  const extraidos: ExtractedExpense[] = [];
+
+  for (const arq of arquivosGrupo) {
+    const { buffer, mimeType: mimeBaixado } = await downloadMedia(arq.fileId);
+    const mimeType = arq.mimeType ?? mimeBaixado;
+    baixados.push({ buffer, mimeType });
+    const extraido =
+      mimeType === "application/pdf"
+        ? await extractFromPdf(buffer, arq.caption)
+        : await extractFromImage(buffer, mimeType, arq.caption);
+    extraidos.push(extraido);
+  }
+
+  const comValor = extraidos.filter((e) => e.valor !== null);
+  if (comValor.length === 0) {
+    await sendText(chatId, "Não consegui identificar o valor em nenhum dos comprovantes enviados. Pode mandar de novo?");
+    return;
+  }
+
+  const valorTotal = comValor.reduce((soma, e) => soma + (e.valor ?? 0), 0);
+  const confiancaBaixa = comValor.length !== extraidos.length || comValor.some((e) => e.confiancaBaixa);
+  const primeiro = comValor[0];
+  const categoria: CategoriaDespesa = primeiro.categoriaSugerida ?? "outros";
+  const descricao =
+    extraidos.length > 1 ? `${primeiro.descricao} (+ ${extraidos.length - 1} comprovante(s))` : primeiro.descricao;
+  const temFoto = arquivosGrupo.some((a) => a.tipo === "photo");
+
+  await criarDespesaComArquivos(
+    chatId,
+    { valor: valorTotal, data: primeiro.data, estabelecimento: primeiro.estabelecimento, descricao, categoria, confiancaBaixa },
+    baixados,
+    temFoto ? "telegram-foto" : "telegram-comprovante"
+  );
+}
+
+async function criarDespesaComArquivos(
+  chatId: string,
+  dados: {
+    valor: number;
+    data: string | null;
+    estabelecimento: string | null;
+    descricao: string;
+    categoria: CategoriaDespesa;
+    confiancaBaixa: boolean;
+  },
+  arquivos: Array<{ buffer: Buffer; mimeType: string }>,
+  origem: Origem
+): Promise<void> {
   const despesaId = await criarDespesa({
-    valor: extraido.valor,
-    data: extraido.data,
-    estabelecimento: extraido.estabelecimento,
-    descricao: extraido.descricao,
-    categoria,
+    valor: dados.valor,
+    data: dados.data,
+    estabelecimento: dados.estabelecimento,
+    descricao: dados.descricao,
+    categoria: dados.categoria,
     // O tipo agora é sempre perguntado ao dono (não usamos mais o palpite da IA pra pular a pergunta).
     tipoDespesa: null,
     finalizado: false,
@@ -124,23 +220,32 @@ async function lancarDespesa(
     comprovanteStoragePath: null,
   });
 
-  if (arquivo && mimeType) {
-    const path = await salvarComprovante(despesaId, arquivo, mimeType);
-    await atualizarDespesa(despesaId, { comprovanteStoragePath: path });
+  if (arquivos.length > 0) {
+    const caminhos: string[] = [];
+    for (let i = 0; i < arquivos.length; i++) {
+      const sufixo = i === 0 ? "" : `-${i + 1}`;
+      const path = await salvarComprovante(despesaId, arquivos[i].buffer, arquivos[i].mimeType, sufixo);
+      caminhos.push(path);
+    }
+    await atualizarDespesa(despesaId, {
+      comprovanteStoragePath: caminhos[0],
+      ...(caminhos.length > 1 ? { comprovantesExtras: caminhos.slice(1) } : {}),
+    });
   }
 
-  if (extraido.confiancaBaixa) {
+  if (dados.confiancaBaixa) {
     await definirEstado(chatId, { aguardando: "confirmacao_valor", despesaId });
-    await sendButtons(
-      chatId,
-      `Registrei um valor de R$ ${extraido.valor.toFixed(2)} mas não tenho certeza — está correto? ` +
-        `Toque em Confirmar, ou digite o valor certo.`,
-      [{ id: "confirma_valor", title: "✅ Confirmar" }]
-    );
+    const rotuloValor =
+      arquivos.length > 1
+        ? `Registrei um total de R$ ${dados.valor.toFixed(2)} somando ${arquivos.length} comprovantes, mas não tenho certeza de todos os valores`
+        : `Registrei um valor de R$ ${dados.valor.toFixed(2)} mas não tenho certeza`;
+    await sendButtons(chatId, `${rotuloValor} — está correto? Toque em Confirmar, ou digite o valor certo.`, [
+      { id: "confirma_valor", title: "✅ Confirmar" },
+    ]);
     return;
   }
 
-  await perguntarTipo(chatId, despesaId, extraido.valor, categoria);
+  await perguntarTipo(chatId, despesaId, dados.valor, dados.categoria);
 }
 
 async function perguntarTipo(chatId: string, despesaId: string, valor: number, categoria: CategoriaDespesa): Promise<void> {

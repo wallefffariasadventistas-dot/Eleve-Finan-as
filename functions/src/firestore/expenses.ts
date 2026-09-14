@@ -25,6 +25,8 @@ export interface Despesa {
   relatorioViagemId: string | null;
   origem: OrigemLancamento;
   comprovanteStoragePath: string | null;
+  /** Comprovantes além do primeiro, quando várias fotos/PDFs são enviados juntos pra mesma despesa. */
+  comprovantesExtras?: string[];
   criadoEm: FirebaseFirestore.FieldValue;
   atualizadoEm: FirebaseFirestore.FieldValue;
 }

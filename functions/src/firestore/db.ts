@@ -12,4 +12,5 @@ export const collections = {
   travelReports: db.collection("relatoriosViagem"),
   conversationState: db.collection("estadoConversa"),
   settings: db.collection("configuracoes"),
+  mediaGroups: db.collection("gruposMidiaTelegram"),
 };
