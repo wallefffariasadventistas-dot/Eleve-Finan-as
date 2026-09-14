@@ -11,6 +11,8 @@ export type Pendencia =
   | { aguardando: "relatorio_viagem"; despesaId: string }
   | { aguardando: "nome_relatorio_viagem"; despesaId: string }
   | { aguardando: "confirmacao_valor"; despesaId: string }
+  | { aguardando: "data_despesa"; despesaId: string; tipoDespesa: TipoDespesa; relatorioViagemId: string | null }
+  | { aguardando: "titulo_despesa"; despesaId: string; tipoDespesa: TipoDespesa; relatorioViagemId: string | null }
   | { aguardando: "descricao_adicional"; despesaId: string; tipoDespesa: TipoDespesa; relatorioViagemId: string | null }
   | null;
 

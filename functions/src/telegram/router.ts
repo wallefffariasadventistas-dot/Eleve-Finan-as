@@ -169,7 +169,64 @@ async function concluirComTipo(chatId: string, despesaId: string, tipoDespesa: T
     return;
   }
 
-  await pedirDescricaoAdicional(chatId, despesaId, tipoDespesa, null);
+  await perguntarData(chatId, despesaId, tipoDespesa, null);
+}
+
+function dataDeHojeISO(): string {
+  // "en-CA" formata como YYYY-MM-DD — evita depender do fuso do servidor, que pode não ser o do Brasil.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+function formatarDataBR(iso: string): string {
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function parsearDataDigitada(texto: string): string | null {
+  const limpo = texto.trim();
+  let m = limpo.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = limpo.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  m = limpo.match(/^(\d{1,2})[/-](\d{1,2})$/);
+  if (m) return `${dataDeHojeISO().slice(0, 4)}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  return null;
+}
+
+async function perguntarData(
+  chatId: string,
+  despesaId: string,
+  tipoDespesa: TipoDespesa,
+  relatorioViagemId: string | null
+): Promise<void> {
+  await definirEstado(chatId, { aguardando: "data_despesa", despesaId, tipoDespesa, relatorioViagemId });
+  const despesa = await buscarDespesa(despesaId);
+  const hoje = dataDeHojeISO();
+  const botoes: Array<{ id: string; title: string }> = [];
+  if (despesa?.data && despesa.data !== hoje) {
+    botoes.push({ id: "data_extraida", title: `📅 ${formatarDataBR(despesa.data)}` });
+  }
+  botoes.push({ id: "data_hoje", title: "📅 Hoje" });
+  await sendButtons(chatId, "Qual a data dessa despesa? Toque numa opção ou digite (ex: 15/03/2026).", botoes);
+}
+
+async function perguntarTitulo(
+  chatId: string,
+  despesaId: string,
+  tipoDespesa: TipoDespesa,
+  relatorioViagemId: string | null
+): Promise<void> {
+  await definirEstado(chatId, { aguardando: "titulo_despesa", despesaId, tipoDespesa, relatorioViagemId });
+  const despesa = await buscarDespesa(despesaId);
+  const botoes: Array<{ id: string; title: string }> = [];
+  if (despesa?.descricao) {
+    botoes.push({ id: "titulo_sugestao", title: `Usar "${despesa.descricao.slice(0, 30)}"` });
+  }
+  await sendButtons(
+    chatId,
+    'Qual o título dessa despesa? (ex: "Refeição com líderes") Digite o texto, ou toque na sugestão.',
+    botoes
+  );
 }
 
 async function pedirDescricaoAdicional(
@@ -228,7 +285,7 @@ async function tratarResposta(
     }
     if (respostaId?.startsWith("relatorio_")) {
       const relatorioId = respostaId.replace("relatorio_", "");
-      await pedirDescricaoAdicional(chatId, pendencia.despesaId, "viagem", relatorioId);
+      await perguntarData(chatId, pendencia.despesaId, "viagem", relatorioId);
       return;
     }
     // Resposta digitada em vez de tocar num botão — não cria relatório novo sozinho,
@@ -244,7 +301,7 @@ async function tratarResposta(
       return;
     }
     const relatorioId = await criarRelatorioViagem(respostaTexto);
-    await pedirDescricaoAdicional(chatId, pendencia.despesaId, "viagem", relatorioId);
+    await perguntarData(chatId, pendencia.despesaId, "viagem", relatorioId);
     return;
   }
 
@@ -261,6 +318,45 @@ async function tratarResposta(
       }
     }
     await perguntarTipo(chatId, pendencia.despesaId, valorFinal, despesa.categoria);
+    return;
+  }
+
+  if (pendencia.aguardando === "data_despesa") {
+    let novaData: string | null = null;
+    if (respostaId === "data_hoje") {
+      novaData = dataDeHojeISO();
+    } else if (respostaId === "data_extraida") {
+      const despesa = await buscarDespesa(pendencia.despesaId);
+      novaData = despesa?.data ?? dataDeHojeISO();
+    } else if (respostaTexto) {
+      novaData = parsearDataDigitada(respostaTexto);
+      if (!novaData) {
+        await sendText(chatId, "Não entendi essa data. Digite no formato 15/03/2026, ou toque numa opção.");
+        return;
+      }
+    } else {
+      await sendText(chatId, "Qual a data dessa despesa?");
+      return;
+    }
+    await atualizarDespesa(pendencia.despesaId, { data: novaData });
+    await perguntarTitulo(chatId, pendencia.despesaId, pendencia.tipoDespesa, pendencia.relatorioViagemId);
+    return;
+  }
+
+  if (pendencia.aguardando === "titulo_despesa") {
+    let titulo: string | null = null;
+    if (respostaId === "titulo_sugestao") {
+      const despesa = await buscarDespesa(pendencia.despesaId);
+      titulo = despesa?.descricao ?? null;
+    } else if (respostaTexto) {
+      titulo = respostaTexto;
+    }
+    if (!titulo) {
+      await sendText(chatId, "Qual o título dessa despesa?");
+      return;
+    }
+    await atualizarDespesa(pendencia.despesaId, { descricao: titulo });
+    await pedirDescricaoAdicional(chatId, pendencia.despesaId, pendencia.tipoDespesa, pendencia.relatorioViagemId);
     return;
   }
 
