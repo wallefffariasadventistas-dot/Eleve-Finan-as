@@ -235,8 +235,16 @@
           <p class="page-subtitle">Dados fixos usados no e-mail de reembolso — preenche uma vez e fica salvo.</p>
           <form id="form-config-reembolso" class="form-grid" style="margin-top: 12px;">
             <div class="field">
+              <label>Banco</label>
+              <input type="text" id="cfg-banco" placeholder="Ex: Banco do Brasil" />
+            </div>
+            <div class="field">
               <label>Conta para reembolso</label>
-              <input type="text" id="cfg-conta" placeholder="Ex: Banco, agência e conta" />
+              <input type="text" id="cfg-conta" placeholder="Ex: Agência 0000, Conta 00000-0" />
+            </div>
+            <div class="field">
+              <label>Chave Pix</label>
+              <input type="text" id="cfg-chave-pix" placeholder="Ex: CPF, e-mail ou telefone" />
             </div>
             <div class="field">
               <label>Centro de custo</label>
@@ -464,7 +472,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=33"></script>
+<script type="module" src="js/app.js?v=34"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

@@ -25,7 +25,7 @@ function montarEmail(
   despesas: Awaited<ReturnType<typeof listarPendentesDeReembolso>>,
   links: string[],
   fundo: Fundo,
-  { contaReembolso, centroCusto }: { contaReembolso: string; centroCusto: string }
+  { banco, contaReembolso, chavePix, centroCusto }: { banco: string; contaReembolso: string; chavePix: string; centroCusto: string }
 ): { assunto: string; corpo: string } {
   const total = despesas.reduce((soma, d) => soma + (d.valor ?? 0), 0);
   const fundoLabel = FUNDO_LABEL[fundo];
@@ -43,7 +43,9 @@ function montarEmail(
     "Segue solicitação de reembolso das despesas de departamento relacionadas abaixo, com os respectivos comprovantes.",
     "",
     "Dados para o reembolso:",
+    `• Banco: ${banco || "—"}`,
     `• Conta para reembolso: ${contaReembolso || "—"}`,
+    `• Chave Pix: ${chavePix || "—"}`,
     `• Centro de custo: ${centroCusto || "—"}`,
     `• Fundo: ${fundoLabel}`,
     "",

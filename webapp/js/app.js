@@ -191,7 +191,9 @@ function startListeners() {
   });
   onSnapshot(doc(db, "configuracoes", "reembolso"), (snap) => {
     const cfg = snap.exists() ? snap.data() : {};
+    document.getElementById("cfg-banco").value = cfg.banco ?? "";
     document.getElementById("cfg-conta").value = cfg.contaReembolso ?? "";
+    document.getElementById("cfg-chave-pix").value = cfg.chavePix ?? "";
     document.getElementById("cfg-centro-custo").value = cfg.centroCusto ?? "";
   });
 }
@@ -1506,7 +1508,9 @@ document.getElementById("form-config-reembolso").addEventListener("submit", asyn
     await setDoc(
       doc(db, "configuracoes", "reembolso"),
       {
+        banco: document.getElementById("cfg-banco").value.trim(),
         contaReembolso: document.getElementById("cfg-conta").value.trim(),
+        chavePix: document.getElementById("cfg-chave-pix").value.trim(),
         centroCusto: document.getElementById("cfg-centro-custo").value.trim(),
       },
       { merge: true }
