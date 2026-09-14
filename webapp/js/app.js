@@ -329,7 +329,7 @@ async function abrirReciboUnico(storagePath) {
 
 const modalRecibos = document.getElementById("modal-recibos");
 function abrirModalRecibos(d, recibos) {
-  document.getElementById("modal-recibos-titulo").textContent = d.descricao || "Recibos dessa despesa";
+  document.getElementById("modal-recibos-titulo").textContent = d.descricao || "Comprovantes";
   document.getElementById("recibos-lista").innerHTML = recibos
     .map((_, i) => `<button type="button" class="btn" data-recibo-index="${i}">Recibo ${i + 1}</button>`)
     .join("");
@@ -399,13 +399,12 @@ document.addEventListener("click", async (e) => {
     e.stopPropagation();
     const n = state.notasFixas.find((x) => x.id === verNotaBtn.dataset.verNota);
     if (!n) return;
-    const janela = window.open("", "_blank");
-    try {
-      const url = await getDownloadURL(ref(storage, n.comprovanteStoragePath));
-      if (janela) janela.location.href = url;
-    } catch (err) {
-      if (janela) janela.close();
-      toast("Erro ao abrir comprovante: " + err.message, true);
+    const recibos = recibosDe(n);
+    if (recibos.length === 0) return;
+    if (recibos.length === 1) {
+      abrirReciboUnico(recibos[0]);
+    } else {
+      abrirModalRecibos(n, recibos);
     }
     return;
   }
@@ -838,8 +837,9 @@ function linhaNotaFixa(n) {
   </tr>`;
 }
 function botoesAcaoNotaFixa(n) {
+  const recibos = recibosDe(n);
   return `<div class="row-actions">
-    ${n.comprovanteStoragePath ? `<button class="btn btn-sm" data-ver-nota="${n.id}">Ver arquivo</button>` : ""}
+    ${recibos.length ? `<button class="btn btn-sm" data-ver-nota="${n.id}">Ver arquivo${recibos.length > 1 ? ` (${recibos.length})` : ""}</button>` : ""}
     <button class="btn btn-sm" data-editar-nota="${n.id}">Editar</button>
     <button class="btn btn-sm btn-danger" data-excluir-nota="${n.id}">Excluir</button>
   </div>`;

@@ -33,6 +33,23 @@ export async function excluirComprovantes(despesaId: string): Promise<void> {
   await bucket.deleteFiles({ prefix: `${config.storageBucketReceiptsPrefix}/${despesaId}/` }).catch(() => {});
 }
 
+/**
+ * Copia os comprovantes já salvos de uma despesa pra pasta de uma nota fixa (usado quando o
+ * dono escolhe "Relatório Fixo Mensal" como destino em vez de Viagem/Departamento/Pessoal —
+ * a despesa original é apagada depois, então os arquivos originais precisam ser preservados
+ * na nova pasta antes disso).
+ */
+export async function copiarComprovantesParaNotaFixa(notaId: string, caminhosOrigem: string[]): Promise<string[]> {
+  const novosCaminhos: string[] = [];
+  for (const caminhoAntigo of caminhosOrigem) {
+    const nomeArquivo = caminhoAntigo.split("/").pop() ?? "original";
+    const novoCaminho = `notas-fixas/${notaId}/${nomeArquivo}`;
+    await bucket.file(caminhoAntigo).copy(novoCaminho);
+    novosCaminhos.push(novoCaminho);
+  }
+  return novosCaminhos;
+}
+
 export async function gerarUrlAssinada(storagePath: string): Promise<string> {
   const [url] = await bucket.file(storagePath).getSignedUrl({
     action: "read",

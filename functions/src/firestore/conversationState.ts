@@ -29,6 +29,7 @@ export type Pendencia =
   | { aguardando: "processando_ia"; mediaGroupId: string | null }
   | { aguardando: "confirmar_lancamento"; resumo: ResumoDespesaPendente; arquivos: ArquivoPendente[]; origem: OrigemLancamento }
   | { aguardando: "tipo_despesa"; despesaId: string }
+  | { aguardando: "relatorio_fixo"; despesaId: string }
   | { aguardando: "relatorio_viagem"; despesaId: string }
   | { aguardando: "nome_relatorio_viagem"; despesaId: string }
   | { aguardando: "confirmacao_valor"; despesaId: string }

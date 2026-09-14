@@ -13,4 +13,6 @@ export const collections = {
   conversationState: db.collection("estadoConversa"),
   settings: db.collection("configuracoes"),
   mediaGroups: db.collection("gruposMidiaTelegram"),
+  fixedReports: db.collection("relatoriosFixos"),
+  fixedNotes: db.collection("notasFixas"),
 };

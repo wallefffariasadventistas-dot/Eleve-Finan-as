@@ -3,7 +3,7 @@ import { sendButtons, sendText, downloadMedia, answerCallback } from "./client";
 import { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from "./types";
 import { extractFromImage, extractFromPdf, extractFromText } from "../ai/expenseExtractor";
 import { transcribeAudio } from "../ai/audioTranscriber";
-import { excluirComprovantes, salvarComprovante } from "../utils/storage";
+import { copiarComprovantesParaNotaFixa, excluirComprovantes, salvarComprovante } from "../utils/storage";
 import {
   atualizarDespesa,
   buscarDespesa,
@@ -12,6 +12,13 @@ import {
   finalizarDespesa,
   OrigemLancamento,
 } from "../firestore/expenses";
+import {
+  atualizarNotaFixa,
+  criarNotaFixa,
+  criarRelatorioFixo,
+  listarRelatoriosFixosRecentes,
+  nomeMesAtual,
+} from "../firestore/fixedReports";
 import { criarRelatorioViagem, listarRelatoriosAbertos } from "../firestore/travelReports";
 import {
   ArquivoPendente,
@@ -30,6 +37,10 @@ const TIPO_BOTOES: Array<{ id: `tipo_${TipoDespesa}`; title: string }> = [
   { id: "tipo_departamento", title: "Departamento" },
   { id: "tipo_pessoal", title: "Pessoal" },
 ];
+
+// Mesmas opções de tipo, mais a opção de guardar o comprovante no Relatório Fixo Mensal em vez
+// de lançar como despesa (não é um TipoDespesa — vai pra uma coleção separada, "notasFixas").
+const TIPO_BOTOES_COM_FIXO = [...TIPO_BOTOES, { id: "lancar_fixo", title: "📋 Relatório Fixo Mensal" }];
 
 /** Ponto de entrada: roteia mensagens de texto/mídia e cliques em botão (callback_query). */
 export async function processarUpdate(update: TelegramUpdate): Promise<void> {
@@ -350,7 +361,54 @@ async function criarDespesaComArquivos(
 
 async function perguntarTipo(chatId: string, despesaId: string, valor: number, categoria: CategoriaDespesa): Promise<void> {
   await definirEstado(chatId, { aguardando: "tipo_despesa", despesaId });
-  await sendButtons(chatId, `Registrei R$ ${valor.toFixed(2)} (${categoria}). Essa despesa é de:`, TIPO_BOTOES);
+  await sendButtons(chatId, `Registrei R$ ${valor.toFixed(2)} (${categoria}). Essa despesa é de:`, TIPO_BOTOES_COM_FIXO);
+}
+
+function botoesRelatoriosFixos(recentes: Array<{ id: string; nome: string }>) {
+  return recentes
+    .map((r) => ({ id: `relatoriofixo_${r.id}`, title: r.nome }))
+    .concat([{ id: "relatoriofixo_novo", title: `+ ${nomeMesAtual()}` }]);
+}
+
+async function perguntarRelatorioFixo(chatId: string, despesaId: string): Promise<void> {
+  await definirEstado(chatId, { aguardando: "relatorio_fixo", despesaId });
+  const recentes = await listarRelatoriosFixosRecentes();
+  await sendButtons(chatId, "Em qual relatório fixo mensal eu guardo esse comprovante?", botoesRelatoriosFixos(recentes));
+}
+
+/**
+ * Quando o dono escolhe "Relatório Fixo Mensal" em vez de Viagem/Departamento/Pessoal: a despesa
+ * já tinha sido criada (pra permitir perguntar o valor/tipo normalmente) — aqui ela vira uma nota
+ * fixa na coleção separada, os comprovantes são copiados pra pasta de notas fixas, e a despesa
+ * original (com seus comprovantes) é apagada.
+ */
+async function moverDespesaParaRelatorioFixo(chatId: string, despesaId: string, relatorioFixoId: string): Promise<void> {
+  await limparEstado(chatId);
+  const despesa = await buscarDespesa(despesaId);
+  if (!despesa) return;
+
+  const notaId = await criarNotaFixa({
+    relatorioFixoId,
+    data: despesa.data,
+    valor: despesa.valor,
+    descricao: despesa.descricao,
+  });
+
+  const caminhosAntigos = [despesa.comprovanteStoragePath, ...(despesa.comprovantesExtras ?? [])].filter(
+    (p): p is string => !!p
+  );
+  if (caminhosAntigos.length > 0) {
+    const novosCaminhos = await copiarComprovantesParaNotaFixa(notaId, caminhosAntigos);
+    await atualizarNotaFixa(notaId, {
+      comprovanteStoragePath: novosCaminhos[0],
+      ...(novosCaminhos.length > 1 ? { comprovantesExtras: novosCaminhos.slice(1) } : {}),
+    });
+  }
+
+  await excluirDespesa(despesaId);
+  await excluirComprovantes(despesaId);
+
+  await sendText(chatId, "Guardado no relatório fixo mensal ✅");
 }
 
 function botoesRelatorios(abertos: Array<{ id: string; nome: string }>) {
@@ -501,13 +559,33 @@ async function tratarResposta(
   }
 
   if (pendencia.aguardando === "tipo_despesa") {
+    const quisRelatorioFixo = respostaId === "lancar_fixo" || (!!respostaTexto && /^fixo/i.test(respostaTexto));
+    if (quisRelatorioFixo) {
+      await perguntarRelatorioFixo(chatId, pendencia.despesaId);
+      return;
+    }
     const tipo = (respostaId?.replace("tipo_", "") ?? mapearTipoPorTexto(respostaTexto)) as TipoDespesa | null;
     if (!tipo) {
-      await sendButtons(chatId, "Não entendi. Essa despesa é de:", TIPO_BOTOES);
+      await sendButtons(chatId, "Não entendi. Essa despesa é de:", TIPO_BOTOES_COM_FIXO);
       return;
     }
     await limparEstado(chatId);
     await concluirComTipo(chatId, pendencia.despesaId, tipo);
+    return;
+  }
+
+  if (pendencia.aguardando === "relatorio_fixo") {
+    let relatorioFixoId: string;
+    if (respostaId === "relatoriofixo_novo") {
+      relatorioFixoId = await criarRelatorioFixo(nomeMesAtual());
+    } else if (respostaId?.startsWith("relatoriofixo_")) {
+      relatorioFixoId = respostaId.replace("relatoriofixo_", "");
+    } else {
+      const recentes = await listarRelatoriosFixosRecentes();
+      await sendButtons(chatId, "Toque em uma das opções abaixo:", botoesRelatoriosFixos(recentes));
+      return;
+    }
+    await moverDespesaParaRelatorioFixo(chatId, pendencia.despesaId, relatorioFixoId);
     return;
   }
 
