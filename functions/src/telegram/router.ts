@@ -109,7 +109,6 @@ async function lancarDespesa(
   }
 
   const categoria: CategoriaDespesa = extraido.categoriaSugerida ?? "outros";
-  const tipoDespesa = extraido.tipoDespesaSugerido;
 
   const despesaId = await criarDespesa({
     valor: extraido.valor,
@@ -117,7 +116,8 @@ async function lancarDespesa(
     estabelecimento: extraido.estabelecimento,
     descricao: extraido.descricao,
     categoria,
-    tipoDespesa,
+    // O tipo agora é sempre perguntado ao dono (não usamos mais o palpite da IA pra pular a pergunta).
+    tipoDespesa: null,
     finalizado: false,
     relatorioViagemId: null,
     origem,
@@ -140,13 +140,12 @@ async function lancarDespesa(
     return;
   }
 
-  if (!tipoDespesa) {
-    await definirEstado(chatId, { aguardando: "tipo_despesa", despesaId });
-    await sendButtons(chatId, `Registrei R$ ${extraido.valor.toFixed(2)} (${categoria}). Essa despesa é de:`, TIPO_BOTOES);
-    return;
-  }
+  await perguntarTipo(chatId, despesaId, extraido.valor, categoria);
+}
 
-  await concluirComTipo(chatId, despesaId, tipoDespesa);
+async function perguntarTipo(chatId: string, despesaId: string, valor: number, categoria: CategoriaDespesa): Promise<void> {
+  await definirEstado(chatId, { aguardando: "tipo_despesa", despesaId });
+  await sendButtons(chatId, `Registrei R$ ${valor.toFixed(2)} (${categoria}). Essa despesa é de:`, TIPO_BOTOES);
 }
 
 function botoesRelatorios(abertos: Array<{ id: string; nome: string }>) {
@@ -170,7 +169,36 @@ async function concluirComTipo(chatId: string, despesaId: string, tipoDespesa: T
     return;
   }
 
-  await finalizarDespesa(despesaId, tipoDespesa, null);
+  await pedirDescricaoAdicional(chatId, despesaId, tipoDespesa, null);
+}
+
+async function pedirDescricaoAdicional(
+  chatId: string,
+  despesaId: string,
+  tipoDespesa: TipoDespesa,
+  relatorioViagemId: string | null
+): Promise<void> {
+  await definirEstado(chatId, { aguardando: "descricao_adicional", despesaId, tipoDespesa, relatorioViagemId });
+  await sendButtons(
+    chatId,
+    'Quer adicionar uma descrição? (ex: "Refeição com líderes") Digite o texto, ou toque em Sem descrição.',
+    [{ id: "sem_descricao", title: "Sem descrição" }]
+  );
+}
+
+async function finalizarComDescricao(
+  chatId: string,
+  despesaId: string,
+  tipoDespesa: TipoDespesa,
+  relatorioViagemId: string | null,
+  descricaoAdicional: string | null
+): Promise<void> {
+  if (descricaoAdicional) {
+    const despesa = await buscarDespesa(despesaId);
+    const descricao = despesa?.descricao ? `${despesa.descricao} — ${descricaoAdicional}` : descricaoAdicional;
+    await atualizarDespesa(despesaId, { descricao });
+  }
+  await finalizarDespesa(despesaId, tipoDespesa, relatorioViagemId);
   await sendText(chatId, `Lançado ✅ — ${tipoDespesa}, reembolsável.`.replace("pessoal, reembolsável", "pessoal"));
 }
 
@@ -200,9 +228,7 @@ async function tratarResposta(
     }
     if (respostaId?.startsWith("relatorio_")) {
       const relatorioId = respostaId.replace("relatorio_", "");
-      await limparEstado(chatId);
-      await finalizarDespesa(pendencia.despesaId, "viagem", relatorioId);
-      await sendText(chatId, "Lançado ✅ — viagem, reembolsável.");
+      await pedirDescricaoAdicional(chatId, pendencia.despesaId, "viagem", relatorioId);
       return;
     }
     // Resposta digitada em vez de tocar num botão — não cria relatório novo sozinho,
@@ -218,9 +244,7 @@ async function tratarResposta(
       return;
     }
     const relatorioId = await criarRelatorioViagem(respostaTexto);
-    await limparEstado(chatId);
-    await finalizarDespesa(pendencia.despesaId, "viagem", relatorioId);
-    await sendText(chatId, "Lançado ✅ — viagem, reembolsável.");
+    await pedirDescricaoAdicional(chatId, pendencia.despesaId, "viagem", relatorioId);
     return;
   }
 
@@ -228,19 +252,22 @@ async function tratarResposta(
     const despesa = await buscarDespesa(pendencia.despesaId);
     if (!despesa) return;
     const confirmou = respostaId === "confirma_valor" || (!!respostaTexto && /^confirma/i.test(respostaTexto));
+    let valorFinal = despesa.valor ?? 0;
     if (!confirmou && respostaTexto) {
       const novoValor = Number(respostaTexto.replace(",", ".").replace(/[^0-9.]/g, ""));
       if (!Number.isNaN(novoValor) && novoValor > 0) {
+        valorFinal = novoValor;
         await atualizarDespesa(pendencia.despesaId, { valor: novoValor });
       }
     }
+    await perguntarTipo(chatId, pendencia.despesaId, valorFinal, despesa.categoria);
+    return;
+  }
+
+  if (pendencia.aguardando === "descricao_adicional") {
+    const descricaoAdicional = respostaId === "sem_descricao" ? null : respostaTexto?.trim() || null;
     await limparEstado(chatId);
-    if (!despesa.tipoDespesa) {
-      await definirEstado(chatId, { aguardando: "tipo_despesa", despesaId: pendencia.despesaId });
-      await sendButtons(chatId, "Valor confirmado. Essa despesa é de:", TIPO_BOTOES);
-    } else {
-      await concluirComTipo(chatId, pendencia.despesaId, despesa.tipoDespesa);
-    }
+    await finalizarComDescricao(chatId, pendencia.despesaId, pendencia.tipoDespesa, pendencia.relatorioViagemId, descricaoAdicional);
   }
 }
 

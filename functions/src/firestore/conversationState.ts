@@ -1,5 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { collections } from "./db";
+import { TipoDespesa } from "../types";
 
 /**
  * O que falta perguntar ao usuário antes de considerar uma despesa "lançada".
@@ -10,6 +11,7 @@ export type Pendencia =
   | { aguardando: "relatorio_viagem"; despesaId: string }
   | { aguardando: "nome_relatorio_viagem"; despesaId: string }
   | { aguardando: "confirmacao_valor"; despesaId: string }
+  | { aguardando: "descricao_adicional"; despesaId: string; tipoDespesa: TipoDespesa; relatorioViagemId: string | null }
   | null;
 
 export interface EstadoConversa {
