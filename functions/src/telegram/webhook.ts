@@ -36,6 +36,12 @@ export const telegramWebhook = onRequest(
     // limitação de CPU e demorar minutos em vez de segundos.
     try {
       const update = req.body as TelegramUpdate;
+      const msg = update.message;
+      console.log(
+        `[diag] update_id=${update.update_id} tipo=${msg ? "message" : update.callback_query ? "callback" : "?"} ` +
+          `media_group_id=${msg?.media_group_id ?? "-"} tem_photo=${!!msg?.photo?.length} tem_document=${!!msg?.document} ` +
+          `callback_data=${update.callback_query?.data ?? "-"}`
+      );
       await processarUpdate(update);
     } catch (err) {
       console.error(`Erro ao processar update do Telegram: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
