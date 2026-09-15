@@ -452,11 +452,28 @@ function renderDepartamento() {
         </div>
         <div class="despesa-card-body${state.departamentoExpandido.has(d.id) ? " open" : ""}" id="despesa-body-${d.id}">
           <div class="despesa-card-detalhe"><span>Origem</span><span>${d.origem ?? "—"}</span></div>
-          <div class="row-actions">${botoesAcaoDespesa(d)}</div>
+          <div class="row-actions">
+            ${(d.statusReembolso === "pendente" || d.statusReembolso === "enviado") ? `<button class="btn btn-sm btn-primary" data-marcar-reembolsado="${d.id}">✅ Marcar como reembolsado</button>` : ""}
+            ${botoesAcaoDespesa(d)}
+          </div>
         </div>
       </div>`;
   }).join("") || `<p class="page-subtitle" style="padding: 18px;">Nenhuma despesa de departamento lançada ainda.</p>`;
 
+  document.querySelectorAll("#lista-departamento [data-marcar-reembolsado]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await updateDoc(doc(db, "despesas", btn.dataset.marcarReembolsado), {
+          statusReembolso: "reembolsado",
+          atualizadoEm: serverTimestamp(),
+        });
+        toast("Despesa marcada como reembolsada.");
+      } catch (err) {
+        toast("Erro ao marcar como reembolsado: " + err.message, true);
+      }
+    });
+  });
   document.querySelectorAll("#lista-departamento .chk-despesa").forEach((chk) => {
     chk.addEventListener("click", (e) => e.stopPropagation());
     chk.addEventListener("change", () => {
