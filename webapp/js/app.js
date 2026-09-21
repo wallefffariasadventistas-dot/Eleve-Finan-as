@@ -29,6 +29,7 @@ const state = {
   departamentoExpandido: new Set(),
   pessoalExpandido: new Set(),
   compromissosExpandido: new Set(),
+  cicloSelecionado: null,
 };
 
 const CATEGORIA_LABEL = {
@@ -65,6 +66,64 @@ function calcularReembolsavel(tipo) { return tipo === "viagem" || tipo === "depa
 function mesAtualISO() {
   const hoje = new Date();
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// ---------- CICLO MENSAL (fecha e reinicia todo dia 30, igual fatura de cartão) ----------
+// O "mês" pro sistema vai do dia 30 de um mês até o dia 29 do mês seguinte; ao virar o
+// dia 30 o total do dashboard zera e começa a contar o ciclo novo. Em meses sem dia 30
+// (fevereiro) o fechamento cai no último dia do mês.
+const DIA_FECHAMENTO_CICLO = 30;
+
+function ultimoDiaDoMes(ano, mesIndex) {
+  return new Date(ano, mesIndex + 1, 0).getDate();
+}
+// Dia em que o ciclo fecha/reinicia no mês informado (mesIndex 0-based).
+function diaFechamentoNoMes(ano, mesIndex) {
+  return Math.min(DIA_FECHAMENTO_CICLO, ultimoDiaDoMes(ano, mesIndex));
+}
+// Data em que o ciclo que contém `data` começou.
+function inicioDoCiclo(data) {
+  const ano = data.getFullYear();
+  const mes = data.getMonth();
+  if (data.getDate() >= diaFechamentoNoMes(ano, mes)) {
+    return new Date(ano, mes, diaFechamentoNoMes(ano, mes));
+  }
+  const mesAnterior = mes === 0 ? 11 : mes - 1;
+  const anoDoMesAnterior = mes === 0 ? ano - 1 : ano;
+  return new Date(anoDoMesAnterior, mesAnterior, diaFechamentoNoMes(anoDoMesAnterior, mesAnterior));
+}
+// Identificador do ciclo (formato "YYYY-MM" do mês em que ele começa) que contém `data`.
+function idDoCiclo(data) {
+  const inicio = inicioDoCiclo(data);
+  return `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, "0")}`;
+}
+function cicloDaDataISO(dataISO) {
+  const [ano, mes, dia] = dataISO.split("-").map(Number);
+  return idDoCiclo(new Date(ano, mes - 1, dia));
+}
+function cicloAtualId() { return idDoCiclo(new Date()); }
+// Início e fim (Date) do ciclo identificado por `cicloId` ("YYYY-MM").
+function limitesDoCiclo(cicloId) {
+  const [ano, mes] = cicloId.split("-").map(Number);
+  const inicio = new Date(ano, mes - 1, diaFechamentoNoMes(ano, mes - 1));
+  const [anoProx, mesProx] = somarMeses(cicloId, 1).split("-").map(Number);
+  const fim = new Date(anoProx, mesProx - 1, diaFechamentoNoMes(anoProx, mesProx - 1));
+  fim.setDate(fim.getDate() - 1);
+  return { inicio, fim };
+}
+const MESES_ABREV_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+function formatarDataCurta(data) {
+  return `${String(data.getDate()).padStart(2, "0")} ${MESES_ABREV_PT[data.getMonth()]}`;
+}
+function labelDoCiclo(cicloId) {
+  const { inicio, fim } = limitesDoCiclo(cicloId);
+  return `${formatarDataCurta(inicio)} – ${formatarDataCurta(fim)}`;
+}
+// Mês "de referência" do ciclo pra exibir no aviso — usa o mês em que o ciclo fecha
+// (onde cai a maior parte dos dias), ex: ciclo 30/ago–29/set = referência Setembro/2024.
+function referenciaMesDoCiclo(cicloId) {
+  const { fim } = limitesDoCiclo(cicloId);
+  return `${MESES_PT[fim.getMonth()]}/${fim.getFullYear()}`;
 }
 
 // ---------- MÁSCARA DE MOEDA (R$ 1.234,56) ----------
@@ -200,23 +259,42 @@ function startListeners() {
 
 // ---------- DASHBOARD ----------
 function renderDashboard() {
-  const mesAtual = mesAtualISO();
-  const totalMes = state.despesas
-    .filter((d) => d.data && d.data.startsWith(mesAtual))
-    .reduce((s, d) => s + (d.valor ?? 0), 0);
+  if (!state.cicloSelecionado) state.cicloSelecionado = cicloAtualId();
+  const ciclo = state.cicloSelecionado;
+  const ehCicloAtual = ciclo === cicloAtualId();
+  const despesasDoCiclo = state.despesas.filter((d) => d.data && cicloDaDataISO(d.data) === ciclo);
+  const totalMes = despesasDoCiclo.reduce((s, d) => s + (d.valor ?? 0), 0);
   const totalPendente = state.despesas
     .filter(estaPendenteDeReembolso)
     .reduce((s, d) => s + (d.valor ?? 0), 0);
   const porTipo = { viagem: 0, departamento: 0, pessoal: 0 };
-  state.despesas.forEach((d) => { if (d.tipoDespesa) porTipo[d.tipoDespesa] += d.valor ?? 0; });
+  despesasDoCiclo.forEach((d) => { if (d.tipoDespesa) porTipo[d.tipoDespesa] += d.valor ?? 0; });
+
+  document.getElementById("dashboard-ciclo-aviso").innerHTML =
+    `📅 Mês de referência: <strong>${referenciaMesDoCiclo(ciclo)}</strong> — ciclo de ${labelDoCiclo(ciclo)}${ehCicloAtual ? " (em andamento)" : " (encerrado)"}`;
 
   document.getElementById("dashboard-hero").innerHTML = `
     <div>
-      <div class="hero-balance-label">Gasto no mês</div>
+      <div class="hero-balance-label">Gasto no ciclo</div>
       <div class="hero-balance-value">R$ ${formatarMoedaExibicao(totalMes)}</div>
+      <div class="hero-ciclo-nav">
+        <button type="button" class="hero-ciclo-btn" id="ciclo-anterior" aria-label="Ciclo anterior">‹</button>
+        <span class="hero-ciclo-label">${labelDoCiclo(ciclo)}${ehCicloAtual ? " · ciclo atual" : ""}</span>
+        <button type="button" class="hero-ciclo-btn" id="ciclo-proximo" aria-label="Próximo ciclo" ${ehCicloAtual ? "disabled" : ""}>›</button>
+      </div>
     </div>
     <div class="hero-balance-icon">${ICON_SVG.carteira}</div>
   `;
+  document.getElementById("ciclo-anterior").addEventListener("click", () => {
+    state.cicloSelecionado = somarMeses(ciclo, -1);
+    renderDashboard();
+  });
+  if (!ehCicloAtual) {
+    document.getElementById("ciclo-proximo").addEventListener("click", () => {
+      state.cicloSelecionado = somarMeses(ciclo, 1);
+      renderDashboard();
+    });
+  }
 
   document.getElementById("dashboard-metrics").innerHTML = `
     <button type="button" class="metric-card clickable" id="metric-pendente-reembolso">
