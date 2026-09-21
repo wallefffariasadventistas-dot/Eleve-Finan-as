@@ -119,6 +119,12 @@ function labelDoCiclo(cicloId) {
   const { inicio, fim } = limitesDoCiclo(cicloId);
   return `${formatarDataCurta(inicio)} – ${formatarDataCurta(fim)}`;
 }
+// Mês "de referência" do ciclo pra exibir no aviso — usa o mês em que o ciclo fecha
+// (onde cai a maior parte dos dias), ex: ciclo 30/ago–29/set = referência Setembro/2024.
+function referenciaMesDoCiclo(cicloId) {
+  const { fim } = limitesDoCiclo(cicloId);
+  return `${MESES_PT[fim.getMonth()]}/${fim.getFullYear()}`;
+}
 
 // ---------- MÁSCARA DE MOEDA (R$ 1.234,56) ----------
 // Formata a partir dos dígitos digitados (os 2 últimos viram centavos), igual a um
@@ -263,6 +269,9 @@ function renderDashboard() {
     .reduce((s, d) => s + (d.valor ?? 0), 0);
   const porTipo = { viagem: 0, departamento: 0, pessoal: 0 };
   despesasDoCiclo.forEach((d) => { if (d.tipoDespesa) porTipo[d.tipoDespesa] += d.valor ?? 0; });
+
+  document.getElementById("dashboard-ciclo-aviso").innerHTML =
+    `📅 Mês de referência: <strong>${referenciaMesDoCiclo(ciclo)}</strong> — ciclo de ${labelDoCiclo(ciclo)}${ehCicloAtual ? " (em andamento)" : " (encerrado)"}`;
 
   document.getElementById("dashboard-hero").innerHTML = `
     <div>

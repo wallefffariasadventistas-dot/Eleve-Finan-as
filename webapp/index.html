@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=33" />
+<link rel="stylesheet" href="css/style.css?v=34" />
 </head>
 <body>
 
@@ -95,6 +95,7 @@
         </div>
         <button class="btn" id="btn-pdf-extrato">Baixar extrato em PDF</button>
       </header>
+      <div id="dashboard-ciclo-aviso" class="ciclo-aviso"></div>
       <div id="dashboard-hero" class="hero-balance"></div>
       <div id="dashboard-metrics" class="metrics"></div>
       <div class="card">
@@ -482,7 +483,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=39"></script>
+<script type="module" src="js/app.js?v=40"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
