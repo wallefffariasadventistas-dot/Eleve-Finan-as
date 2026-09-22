@@ -831,6 +831,31 @@ function formatarPeriodo(r) {
   return "";
 }
 
+// Soma as despesas do relatório agrupadas por categoria (combustível, alimentação etc.)
+// pra dar um resumo rápido de quanto foi gasto em cada uma, sem precisar abrir a tabela.
+function resumoPorCategoriaHtml(despesasDoRelatorio) {
+  if (despesasDoRelatorio.length === 0) return "";
+  const porCategoria = {};
+  despesasDoRelatorio.forEach((d) => {
+    const categoria = d.categoria || "outros";
+    if (!porCategoria[categoria]) porCategoria[categoria] = { total: 0, qtd: 0 };
+    porCategoria[categoria].total += d.valor ?? 0;
+    porCategoria[categoria].qtd += 1;
+  });
+  const chips = Object.entries(porCategoria)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([categoria, { total, qtd }]) => `
+      <div class="resumo-categoria-chip">
+        <span class="resumo-categoria-label">${CATEGORIA_LABEL[categoria] ?? categoria} · ${qtd} nota(s)</span>
+        <span class="resumo-categoria-valor">R$ ${formatarMoedaExibicao(total)}</span>
+      </div>`).join("");
+  return `
+    <div class="relatorio-resumo">
+      <div class="relatorio-resumo-titulo">Resumo por categoria</div>
+      <div class="relatorio-resumo-categorias">${chips}</div>
+    </div>`;
+}
+
 function renderRelatorios() {
   const temRelatorioAberto = state.relatorios.some((r) => r.status === "aberto");
   const btnNovaDespesaViagem = document.getElementById("btn-nova-despesa-viagem");
@@ -862,6 +887,7 @@ function renderRelatorios() {
               <button data-status-relatorio="${r.id}" data-status="pago" class="${r.status === "pago" ? "active-pago" : ""}">Pago</button>
             </div>
           </div>
+          ${resumoPorCategoriaHtml(despesasDoRelatorio)}
           <div class="table-wrap"><table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table></div>
           <div class="form-actions">
             <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
