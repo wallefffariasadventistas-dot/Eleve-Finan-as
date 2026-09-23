@@ -4,7 +4,7 @@ import { CategoriaDespesa, ExtractedExpense, TipoDespesa } from "../types";
 
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 
-const CATEGORIAS: CategoriaDespesa[] = [
+export const CATEGORIAS: CategoriaDespesa[] = [
   "combustivel",
   "hospedagem",
   "alimentacao",

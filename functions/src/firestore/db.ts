@@ -15,4 +15,5 @@ export const collections = {
   mediaGroups: db.collection("gruposMidiaTelegram"),
   fixedReports: db.collection("relatoriosFixos"),
   fixedNotes: db.collection("notasFixas"),
+  creditCardInvoices: db.collection("faturasCartao"),
 };

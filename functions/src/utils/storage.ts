@@ -50,6 +50,21 @@ export async function copiarComprovantesParaNotaFixa(notaId: string, caminhosOri
   return novosCaminhos;
 }
 
+/** Salva os arquivos originais (imagem/PDF) de uma fatura de cartão de crédito e devolve os caminhos no bucket. */
+export async function salvarArquivosFatura(
+  faturaId: string,
+  arquivos: { buffer: Buffer; mimeType: string }[]
+): Promise<string[]> {
+  const caminhos: string[] = [];
+  for (let i = 0; i < arquivos.length; i++) {
+    const ext = EXT_BY_MIME[arquivos[i].mimeType] ?? "bin";
+    const path = `faturas/${faturaId}/arquivo-${i + 1}.${ext}`;
+    await bucket.file(path).save(arquivos[i].buffer, { metadata: { contentType: arquivos[i].mimeType } });
+    caminhos.push(path);
+  }
+  return caminhos;
+}
+
 export async function gerarUrlAssinada(storagePath: string): Promise<string> {
   const [url] = await bucket.file(storagePath).getSignedUrl({
     action: "read",

@@ -7,7 +7,8 @@ export type OrigemLancamento =
   | "telegram-audio"
   | "telegram-texto"
   | "telegram-comprovante"
-  | "manual";
+  | "manual"
+  | "fatura-cartao";
 
 export type StatusReembolso = "nao_reembolsavel" | "pendente" | "enviado" | "reembolsado";
 
@@ -27,6 +28,8 @@ export interface Despesa {
   comprovanteStoragePath: string | null;
   /** Comprovantes além do primeiro, quando várias fotos/PDFs são enviados juntos pra mesma despesa. */
   comprovantesExtras?: string[];
+  /** Preenchido quando a despesa veio da leitura automática de uma fatura de cartão (origem "fatura-cartao"). */
+  faturaCartaoId?: string | null;
   criadoEm: FirebaseFirestore.FieldValue;
   atualizadoEm: FirebaseFirestore.FieldValue;
 }

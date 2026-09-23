@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=35" />
+<link rel="stylesheet" href="css/style.css?v=36" />
 </head>
 <body>
 
@@ -150,9 +150,11 @@
         <button class="btn btn-primary" id="btn-nova-despesa-pessoal">+ Lançar despesa</button>
       </header>
       <div class="filter-bar">
+        <button class="btn btn-sm btn-primary" id="btn-subir-fatura">Subir fatura do cartão</button>
         <button class="btn btn-sm" id="btn-pdf-pessoal">Baixar PDF</button>
         <button class="btn btn-sm" id="btn-comprovantes-pessoal">Baixar comprovantes (.zip)</button>
       </div>
+      <div id="lista-faturas-cartao"></div>
       <div id="lista-pessoal" class="despesas-lista"></div>
     </section>
 
@@ -382,6 +384,37 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-fatura-cartao">
+  <div class="modal">
+    <button type="button" class="modal-close" id="btn-fechar-fatura" aria-label="Fechar">&times;</button>
+    <p class="modal-eyebrow">Despesas Pessoais</p>
+    <h2>Subir fatura do cartão</h2>
+    <p class="page-subtitle" style="margin-bottom: 16px;">
+      Envie até 3 arquivos (PDF ou imagem) da mesma fatura. A IA lê cada gasto da fatura, separa
+      por categoria e já lança como despesa pessoal automaticamente.
+    </p>
+    <form id="form-fatura-cartao">
+      <div class="form-grid wide">
+        <div class="field">
+          <label>Mês de referência da fatura</label>
+          <input type="month" id="fc-mes" />
+        </div>
+      </div>
+      <div class="form-grid wide">
+        <div class="field">
+          <label>Arquivos da fatura (até 3 — PDF ou imagem)</label>
+          <input type="file" id="fc-arquivos" accept="image/*,application/pdf" multiple />
+        </div>
+      </div>
+      <div id="fc-resultado" class="fatura-resultado" hidden></div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btn-cancelar-fatura">Fechar</button>
+        <button type="submit" class="btn btn-primary" id="btn-processar-fatura">Ler fatura e lançar despesas</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-subvencao">
   <div class="modal">
     <button type="button" class="modal-close" id="btn-fechar-subvencao" aria-label="Fechar">&times;</button>
@@ -483,7 +516,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=41"></script>
+<script type="module" src="js/app.js?v=42"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
