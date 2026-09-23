@@ -30,6 +30,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Faturas de cartão de crédito enviadas na área de Despesas Pessoais: o backend (Admin SDK)
+    // é quem lê os arquivos e lança as despesas, mas o dashboard lê/exclui o registro da fatura.
+    match /faturasCartao/{faturaId} {
+      allow read, write: if request.auth != null;
+    }
+
     // Dados fixos usados no e-mail de reembolso (conta, centro de custo), editáveis no dashboard.
     match /configuracoes/{docId} {
       allow read, write: if request.auth != null;

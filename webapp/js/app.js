@@ -30,6 +30,7 @@ const state = {
   pessoalExpandido: new Set(),
   compromissosExpandido: new Set(),
   cicloSelecionado: null,
+  faturas: [],
 };
 
 const CATEGORIA_LABEL = {
@@ -247,6 +248,10 @@ function startListeners() {
   onSnapshot(collection(db, "subvencoes"), (snap) => {
     state.subvencoes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderSubvencoes();
+  });
+  onSnapshot(query(collection(db, "faturasCartao"), orderBy("criadoEm", "desc")), (snap) => {
+    state.faturas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderFaturas();
   });
   onSnapshot(doc(db, "configuracoes", "reembolso"), (snap) => {
     const cfg = snap.exists() ? snap.data() : {};
@@ -614,6 +619,113 @@ function renderPessoal() {
     });
   });
 }
+
+// ---------- FATURA DE CARTÃO DE CRÉDITO (upload + leitura automática por IA) ----------
+function labelMesReferenciaFatura(mesIso) {
+  if (!mesIso) return "Sem mês definido";
+  const [ano, mes] = mesIso.split("-").map(Number);
+  return `${MESES_PT[mes - 1]}/${ano}`;
+}
+function chipsPorCategoriaFatura(porCategoria) {
+  return Object.entries(porCategoria || {})
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([categoria, { total, qtd }]) => `
+      <div class="resumo-categoria-chip">
+        <span class="resumo-categoria-label">${CATEGORIA_LABEL[categoria] ?? categoria} · ${qtd} lançamento(s)</span>
+        <span class="resumo-categoria-valor">R$ ${formatarMoedaExibicao(total)}</span>
+      </div>`).join("");
+}
+function renderFaturas() {
+  const container = document.getElementById("lista-faturas-cartao");
+  if (state.faturas.length === 0) { container.innerHTML = ""; return; }
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span class="card-title">Faturas de cartão enviadas</span></div>
+      <div class="fatura-lista">
+        ${state.faturas.map((f) => `
+          <div class="fatura-card">
+            <div class="fatura-card-header">
+              <div>
+                <div class="fatura-card-titulo">${labelMesReferenciaFatura(f.mesReferencia)}</div>
+                <div class="fatura-card-meta">${(f.despesaIds ?? []).length} despesa(s) lançada(s)</div>
+              </div>
+              <div class="fatura-card-total">R$ ${formatarMoedaExibicao(f.totalGeral)}</div>
+            </div>
+            <div class="relatorio-resumo-categorias">${chipsPorCategoriaFatura(f.porCategoria)}</div>
+            <div class="row-actions">
+              <button class="btn btn-sm btn-danger" data-excluir-fatura="${f.id}">Excluir fatura e despesas lançadas</button>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>`;
+
+  document.querySelectorAll("[data-excluir-fatura]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const faturaId = btn.dataset.excluirFatura;
+      const fatura = state.faturas.find((f) => f.id === faturaId);
+      const qtd = fatura?.despesaIds?.length ?? 0;
+      if (!confirm(`Excluir esta fatura também exclui as ${qtd} despesa(s) lançadas por ela. Essa ação não pode ser desfeita. Continuar?`)) return;
+      try {
+        await Promise.all((fatura?.despesaIds ?? []).map((id) => deleteDoc(doc(db, "despesas", id))));
+        await deleteDoc(doc(db, "faturasCartao", faturaId));
+        toast("Fatura excluída.");
+      } catch (err) {
+        toast("Erro ao excluir fatura: " + err.message, true);
+      }
+    });
+  });
+}
+
+// ---------- MODAL FATURA DE CARTÃO ----------
+const modalFatura = document.getElementById("modal-fatura-cartao");
+const processarFaturaCartao = httpsCallable(functions, "processarFaturaCartao");
+
+function abrirModalFatura() {
+  document.getElementById("form-fatura-cartao").reset();
+  document.getElementById("fc-mes").value = mesAtualISO();
+  const resultado = document.getElementById("fc-resultado");
+  resultado.hidden = true;
+  resultado.innerHTML = "";
+  modalFatura.classList.add("show");
+}
+document.getElementById("btn-subir-fatura").addEventListener("click", abrirModalFatura);
+document.getElementById("btn-fechar-fatura").addEventListener("click", () => modalFatura.classList.remove("show"));
+document.getElementById("btn-cancelar-fatura").addEventListener("click", () => modalFatura.classList.remove("show"));
+
+document.getElementById("form-fatura-cartao").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const inputArquivos = document.getElementById("fc-arquivos");
+  const arquivos = Array.from(inputArquivos.files);
+  if (arquivos.length === 0) { toast("Escolha ao menos um arquivo da fatura.", true); return; }
+  if (arquivos.length > 3) { toast("Envie no máximo 3 arquivos por fatura.", true); return; }
+
+  const btn = document.getElementById("btn-processar-fatura");
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Lendo fatura...";
+  try {
+    const arquivosBase64 = await Promise.all(arquivos.map(async (arquivo) => ({
+      base64: await arquivoParaBase64(arquivo),
+      mimeType: arquivo.type,
+    })));
+    const mesReferencia = document.getElementById("fc-mes").value || null;
+    const { data } = await processarFaturaCartao({ arquivos: arquivosBase64, mesReferencia });
+
+    const resultado = document.getElementById("fc-resultado");
+    resultado.hidden = false;
+    resultado.innerHTML = `
+      <p class="fatura-resultado-titulo">✅ ${data.quantidadeDespesas} despesa(s) lançada(s) — total de R$ ${formatarMoedaExibicao(data.totalGeral)}</p>
+      <div class="relatorio-resumo-categorias">${chipsPorCategoriaFatura(data.porCategoria)}</div>
+    `;
+    toast(`Fatura lida: ${data.quantidadeDespesas} despesa(s) lançada(s) automaticamente.`);
+    inputArquivos.value = "";
+  } catch (err) {
+    toast("Erro ao processar fatura: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+});
 
 // ---------- MODAL DESPESA (lançamento manual) ----------
 const modalDespesa = document.getElementById("modal-despesa");

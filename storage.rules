@@ -19,5 +19,12 @@ service firebase.storage {
                    && request.resource.size < 15 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*|application/pdf');
     }
+
+    // Arquivos originais das faturas de cartão de crédito (Despesas Pessoais). A escrita é
+    // feita só pelo backend (Admin SDK) ao processar a fatura enviada via Cloud Function.
+    match /faturas/{faturaId}/{arquivo} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }
