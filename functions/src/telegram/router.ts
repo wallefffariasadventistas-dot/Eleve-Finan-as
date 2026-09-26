@@ -44,12 +44,28 @@ const TIPO_BOTOES_COM_FIXO = [...TIPO_BOTOES, { id: "lancar_fixo", title: "📋 
 
 /** Ponto de entrada: roteia mensagens de texto/mídia e cliques em botão (callback_query). */
 export async function processarUpdate(update: TelegramUpdate): Promise<void> {
-  if (update.callback_query) {
-    await processarCallback(update.callback_query);
-    return;
-  }
-  if (update.message) {
-    await processarMensagem(update.message);
+  try {
+    if (update.callback_query) {
+      await processarCallback(update.callback_query);
+      return;
+    }
+    if (update.message) {
+      await processarMensagem(update.message);
+    }
+  } catch (err) {
+    // Sem isso, um erro no meio do processamento (IA, download do Telegram etc.) só aparecia
+    // no log do Cloud Functions — pro dono, parecia que o bot simplesmente não respondeu nada.
+    const chatId = String(
+      update.message?.chat.id ?? update.callback_query?.message?.chat.id ?? update.callback_query?.from.id ?? ""
+    );
+    if (chatId && chatId === config.telegram.ownerChatId) {
+      await limparEstado(chatId).catch(() => {});
+      await sendText(
+        chatId,
+        "Deu um erro ao processar isso. Tenta enviar de novo — se continuar falhando, confira os logs do sistema."
+      ).catch(() => {});
+    }
+    throw err;
   }
 }
 
