@@ -287,6 +287,15 @@ input[type="checkbox"], input[type="radio"] {
 .relatorio-body { display: none; padding: 0 18px 16px; }
 .relatorio-body.open { display: block; }
 
+.relatorio-valores { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.relatorio-valor-item {
+  display: flex; flex-direction: column; gap: 2px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 14px; min-width: 150px;
+}
+.relatorio-valor-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
+.relatorio-valor-numero { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
+.relatorio-valor-vazio { font-family: inherit; font-size: 13px; font-weight: 500; color: var(--text3); }
+
 /* Lista de despesas resumida (Departamento) — cada linha mostra só o essencial
    e expande ao clicar pra ver origem/status detalhado e as ações. */
 .despesas-lista { display: flex; flex-direction: column; gap: 10px; }

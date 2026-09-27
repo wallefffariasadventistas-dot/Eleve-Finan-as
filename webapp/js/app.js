@@ -882,6 +882,7 @@ function abrirModalRelatorioEdicao(r) {
   document.getElementById("r-destino").value = r.destino ?? "";
   document.getElementById("r-data-inicio").value = r.dataInicio ?? "";
   document.getElementById("r-data-fim").value = r.dataFim ?? "";
+  preencherCampoMoeda("r-valor-recebido", r.valorRecebido);
   modalRelatorio.classList.add("show");
 }
 document.getElementById("btn-cancelar-relatorio").addEventListener("click", () => {
@@ -905,6 +906,7 @@ document.getElementById("form-relatorio").addEventListener("submit", async (e) =
       destino: document.getElementById("r-destino").value || null,
       dataInicio: document.getElementById("r-data-inicio").value || null,
       dataFim: document.getElementById("r-data-fim").value || null,
+      valorRecebido: lerCampoMoeda("r-valor-recebido"),
     };
     if (editandoId) {
       await updateDoc(doc(db, "relatoriosViagem", editandoId), payload);
@@ -968,6 +970,43 @@ function resumoPorCategoriaHtml(despesasDoRelatorio) {
     </div>`;
 }
 
+// Mostra o total gasto (soma das despesas lançadas) ao lado do valor real que o dono marcou
+// manualmente como "a receber" desse relatório — nem sempre é o mesmo valor (reembolso parcial,
+// glosa, valor a mais etc.), e a diferença entre os dois ajuda a enxergar isso de cara.
+function relatorioValoresHtml(totalGasto, valorRecebido) {
+  if (valorRecebido == null) {
+    return `
+      <div class="relatorio-valores">
+        <div class="relatorio-valor-item">
+          <span class="relatorio-valor-label">Total gasto</span>
+          <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(totalGasto)}</span>
+        </div>
+        <div class="relatorio-valor-item">
+          <span class="relatorio-valor-label">Valor real a receber</span>
+          <span class="relatorio-valor-numero relatorio-valor-vazio">Não informado ainda</span>
+        </div>
+      </div>`;
+  }
+  const diferenca = valorRecebido - totalGasto;
+  const classeDiferenca = diferenca >= 0 ? "valor-recebido" : "valor-pendente";
+  const sinalDiferenca = diferenca > 0 ? "+" : diferenca < 0 ? "−" : "";
+  return `
+    <div class="relatorio-valores">
+      <div class="relatorio-valor-item">
+        <span class="relatorio-valor-label">Total gasto</span>
+        <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(totalGasto)}</span>
+      </div>
+      <div class="relatorio-valor-item">
+        <span class="relatorio-valor-label">Valor real a receber</span>
+        <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(valorRecebido)}</span>
+      </div>
+      <div class="relatorio-valor-item">
+        <span class="relatorio-valor-label">Diferença</span>
+        <span class="relatorio-valor-numero ${classeDiferenca}">${sinalDiferenca}R$ ${formatarMoedaExibicao(Math.abs(diferenca))}</span>
+      </div>
+    </div>`;
+}
+
 function renderRelatorios() {
   const temRelatorioAberto = state.relatorios.some((r) => r.status === "aberto");
   const btnNovaDespesaViagem = document.getElementById("btn-nova-despesa-viagem");
@@ -999,6 +1038,7 @@ function renderRelatorios() {
               <button data-status-relatorio="${r.id}" data-status="pago" class="${r.status === "pago" ? "active-pago" : ""}">Pago</button>
             </div>
           </div>
+          ${relatorioValoresHtml(total, r.valorRecebido)}
           ${resumoPorCategoriaHtml(despesasDoRelatorio)}
           <div class="table-wrap"><table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table></div>
           <div class="form-actions">
