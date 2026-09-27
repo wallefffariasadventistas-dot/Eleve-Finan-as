@@ -6,11 +6,23 @@ export interface RelatorioFixo {
   criadoEm: FirebaseFirestore.FieldValue;
 }
 
+/** Área da conta fixa (internet, farmácia etc.) — usada pro resumo por área do relatório fixo mensal. */
+export type CategoriaNotaFixa =
+  | "internet"
+  | "assinaturas"
+  | "farmacia"
+  | "agua"
+  | "luz"
+  | "telefone"
+  | "moradia"
+  | "outros";
+
 export interface NotaFixa {
   relatorioFixoId: string;
   data: string | null;
   valor: number | null;
   descricao: string | null;
+  categoria: CategoriaNotaFixa;
   comprovanteStoragePath: string | null;
   /** Comprovantes além do primeiro, quando várias fotos/PDFs são enviados juntos pelo Telegram. */
   comprovantesExtras?: string[];
@@ -54,9 +66,11 @@ export async function criarNotaFixa(dados: {
   data: string | null;
   valor: number | null;
   descricao: string | null;
+  categoria?: CategoriaNotaFixa | null;
 }): Promise<string> {
   const doc = await collections.fixedNotes.add({
     ...dados,
+    categoria: dados.categoria ?? "outros",
     comprovanteStoragePath: null,
     criadoEm: FieldValue.serverTimestamp(),
     atualizadoEm: FieldValue.serverTimestamp(),
