@@ -508,6 +508,13 @@ document.addEventListener("click", async (e) => {
     return;
   }
 
+  const repetirNotaBtn = e.target.closest("[data-repetir-nota]");
+  if (repetirNotaBtn) {
+    e.stopPropagation();
+    repetirNotaProximoMes(repetirNotaBtn.dataset.repetirNota);
+    return;
+  }
+
   const editarNotaBtn = e.target.closest("[data-editar-nota]");
   if (editarNotaBtn) {
     e.stopPropagation();
@@ -1209,9 +1216,59 @@ function botoesAcaoNotaFixa(n) {
   const recibos = recibosDe(n);
   return `<div class="row-actions">
     ${recibos.length ? `<button class="btn btn-sm" data-ver-nota="${n.id}">Ver arquivo${recibos.length > 1 ? ` (${recibos.length})` : ""}</button>` : ""}
+    <button class="btn btn-sm" data-repetir-nota="${n.id}" title="Lança essa mesma despesa no relatório do mês seguinte">🔁 Repetir no mês seguinte</button>
     <button class="btn btn-sm" data-editar-nota="${n.id}">Editar</button>
     <button class="btn btn-sm btn-danger" data-excluir-nota="${n.id}">Excluir</button>
   </div>`;
+}
+
+// Mesma data um mês depois (dia igual, mês seguinte) — usada pra saber em que relatório fixo
+// (mês) a despesa replicada deve cair.
+function dataMesSeguinte(dataISO) {
+  const [ano, mes, dia] = dataISO.split("-").map(Number);
+  // new Date usa mês 0-based: passar o "mes" (1-based) original já aponta pro mês seguinte.
+  const d = new Date(ano, mes, dia);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Evita criar dois relatórios fixos duplicados com o mesmo nome quando o dono clica em
+// "repetir" em várias notas seguidas antes do primeiro relatório novo aparecer no state
+// (a criação ainda não voltou do Firestore) — reaproveita a mesma criação em andamento.
+const criacoesRelatorioFixoEmAndamento = {};
+async function obterOuCriarRelatorioFixoPorNome(nome) {
+  const existente = state.relatoriosFixos.find((r) => r.nome === nome);
+  if (existente) return existente.id;
+  if (!criacoesRelatorioFixoEmAndamento[nome]) {
+    criacoesRelatorioFixoEmAndamento[nome] = addDoc(collection(db, "relatoriosFixos"), {
+      nome, criadoEm: serverTimestamp(),
+    }).then((docRef) => docRef.id);
+  }
+  return criacoesRelatorioFixoEmAndamento[nome];
+}
+
+async function repetirNotaProximoMes(notaId) {
+  const nota = state.notasFixas.find((n) => n.id === notaId);
+  if (!nota) return;
+  const dataBase = nota.data ?? new Date().toISOString().slice(0, 10);
+  const novaData = dataMesSeguinte(dataBase);
+  const [novoAno, novoMes] = novaData.split("-").map(Number);
+  const nomeAlvo = `${MESES_PT[novoMes - 1]} ${novoAno}`;
+  try {
+    const relatorioAlvoId = await obterOuCriarRelatorioFixoPorNome(nomeAlvo);
+    await addDoc(collection(db, "notasFixas"), {
+      relatorioFixoId: relatorioAlvoId,
+      data: novaData,
+      valor: nota.valor,
+      categoria: nota.categoria ?? "outros",
+      descricao: nota.descricao ?? null,
+      comprovanteStoragePath: null,
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    });
+    toast(`Despesa replicada pro relatório "${nomeAlvo}".`);
+  } catch (err) {
+    toast("Erro ao replicar despesa: " + err.message, true);
+  }
 }
 
 function renderRelatoriosFixos() {
