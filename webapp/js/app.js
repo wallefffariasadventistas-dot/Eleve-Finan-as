@@ -38,6 +38,12 @@ const CATEGORIA_LABEL = {
   transporte: "Transporte", carro_alugado: "Carro alugado", material: "Material",
   servicos: "Serviços", outros: "Outros",
 };
+// Áreas das contas do Relatório Fixo Mensal — categorias próprias, diferentes das de despesa
+// (viagem/departamento/pessoal), porque contas fixas são outro tipo de gasto (internet, água etc).
+const NOTA_CATEGORIA_LABEL = {
+  internet: "Internet", assinaturas: "Assinaturas/TV", farmacia: "Farmácia/Remédio",
+  agua: "Água", luz: "Energia/Luz", telefone: "Telefone", moradia: "Aluguel/Condomínio", outros: "Outros",
+};
 const STATUS_LABEL = {
   pendente: "Pendente", enviado: "Enviado", reembolsado: "Reembolsado", nao_reembolsavel: "—",
 };
@@ -1168,10 +1174,36 @@ function nomeMesAtual() {
 function linhaNotaFixa(n) {
   return `<tr>
     <td data-label="Data">${n.data ?? "—"}</td>
+    <td data-label="Área">${NOTA_CATEGORIA_LABEL[n.categoria] ?? "Outros"}</td>
     <td data-label="Descrição">${n.descricao ?? "—"}</td>
     <td data-label="Valor" class="td-mono">${n.valor != null ? `R$ ${formatarMoedaExibicao(n.valor)}` : "—"}</td>
     <td data-label="Ações">${botoesAcaoNotaFixa(n)}</td>
   </tr>`;
+}
+// Soma as notas do relatório fixo agrupadas por área (internet, farmácia etc.) — mesmo
+// formato visual do resumo por categoria dos relatórios de viagem.
+function resumoPorAreaNotasHtml(notasDoRelatorio) {
+  const comValor = notasDoRelatorio.filter((n) => n.valor != null);
+  if (comValor.length === 0) return "";
+  const porArea = {};
+  comValor.forEach((n) => {
+    const categoria = n.categoria || "outros";
+    if (!porArea[categoria]) porArea[categoria] = { total: 0, qtd: 0 };
+    porArea[categoria].total += n.valor ?? 0;
+    porArea[categoria].qtd += 1;
+  });
+  const chips = Object.entries(porArea)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([categoria, { total, qtd }]) => `
+      <div class="resumo-categoria-chip">
+        <span class="resumo-categoria-label">${NOTA_CATEGORIA_LABEL[categoria] ?? categoria} · ${qtd} nota(s)</span>
+        <span class="resumo-categoria-valor">R$ ${formatarMoedaExibicao(total)}</span>
+      </div>`).join("");
+  return `
+    <div class="relatorio-resumo">
+      <div class="relatorio-resumo-titulo">Resumo por área</div>
+      <div class="relatorio-resumo-categorias">${chips}</div>
+    </div>`;
 }
 function botoesAcaoNotaFixa(n) {
   const recibos = recibosDe(n);
@@ -1199,6 +1231,7 @@ function renderRelatoriosFixos() {
           <div class="relatorio-total">R$ ${formatarMoedaExibicao(total)}</div>
         </div>
         <div class="relatorio-body${state.relatoriosFixosExpandidos.has(r.id) ? " open" : ""}" id="body-fixo-${r.id}">
+          ${resumoPorAreaNotasHtml(notasDoRelatorio)}
           <div class="table-wrap"><table><tbody>${notasDoRelatorio.map(linhaNotaFixa).join("") || "<tr><td>Nenhuma nota adicionada ainda.</td></tr>"}</tbody></table></div>
           <div class="form-actions">
             <button class="btn btn-sm btn-primary" data-add-nota-fixo="${r.id}">+ Adicionar nota</button>
@@ -1344,6 +1377,7 @@ function abrirModalNotaFixaEdicao(n) {
   document.getElementById("nf-arquivo-atual").hidden = !n.comprovanteStoragePath;
   document.getElementById("nf-data").value = n.data ?? "";
   preencherCampoMoeda("nf-valor", n.valor);
+  document.getElementById("nf-categoria").value = n.categoria ?? "outros";
   document.getElementById("nf-descricao").value = n.descricao ?? "";
   modalNotaFixa.classList.add("show");
 }
@@ -1400,10 +1434,6 @@ document.getElementById("form-nota-fixa").addEventListener("submit", async (e) =
   if (btnSalvar.disabled) return;
   const editandoId = state.editandoNotaId;
   const arquivo = document.getElementById("nf-arquivo").files[0];
-  if (!editandoId && !arquivo) {
-    toast("Anexe o arquivo da nota, cupom ou comprovante.", true);
-    return;
-  }
   const textoOriginal = btnSalvar.textContent;
   btnSalvar.disabled = true;
   btnSalvar.textContent = editandoId ? "Salvando..." : "Criando...";
@@ -1412,6 +1442,7 @@ document.getElementById("form-nota-fixa").addEventListener("submit", async (e) =
       relatorioFixoId: state.notaFixaRelatorioAtual,
       data: document.getElementById("nf-data").value,
       valor: lerCampoMoeda("nf-valor"),
+      categoria: document.getElementById("nf-categoria").value || "outros",
       descricao: document.getElementById("nf-descricao").value || null,
       atualizadoEm: serverTimestamp(),
     };
@@ -1455,18 +1486,19 @@ document.addEventListener("keydown", (e) => {
 
 function tabelaNotasPdf(doc, notas, startY) {
   const linhas = notas.map((n) => [
-    n.data ?? "—", n.descricao ?? "—", n.valor != null ? `R$ ${formatarMoedaExibicao(n.valor)}` : "—",
+    n.data ?? "—", NOTA_CATEGORIA_LABEL[n.categoria] ?? "Outros", n.descricao ?? "—",
+    n.valor != null ? `R$ ${formatarMoedaExibicao(n.valor)}` : "—",
   ]);
   const total = notas.reduce((s, n) => s + (n.valor ?? 0), 0);
   doc.autoTable({
     startY: startY ?? 36,
-    head: [["Data", "Descrição", "Valor"]],
+    head: [["Data", "Área", "Descrição", "Valor"]],
     body: linhas,
-    foot: [["", "Total", `R$ ${formatarMoedaExibicao(total)}`]],
+    foot: [["", "", "Total", `R$ ${formatarMoedaExibicao(total)}`]],
     styles: { fontSize: 9, cellPadding: 4 },
     headStyles: { fillColor: [23, 27, 37] },
     footStyles: { fillColor: [23, 27, 37], fontStyle: "bold" },
-    columnStyles: { 2: { halign: "right" } },
+    columnStyles: { 3: { halign: "right" } },
   });
   return total;
 }

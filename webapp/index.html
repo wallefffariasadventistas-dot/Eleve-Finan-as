@@ -366,7 +366,7 @@
     <form id="form-nota-fixa">
       <div class="form-grid wide">
         <div class="field">
-          <label>Arquivo (nota, cupom, recibo ou print)</label>
+          <label>Arquivo (opcional — nota, cupom, recibo ou print)</label>
           <input type="file" id="nf-arquivo" accept="image/*,application/pdf" />
           <p class="field-hint" id="nf-arquivo-atual" hidden>Já tem um arquivo salvo. Escolha outro só se quiser substituir.</p>
         </div>
@@ -381,7 +381,20 @@
           </div>
         </div>
       </div>
-      <div class="form-grid wide">
+      <div class="form-grid">
+        <div class="field">
+          <label>Área</label>
+          <select id="nf-categoria">
+            <option value="internet">Internet</option>
+            <option value="assinaturas">Assinaturas/TV</option>
+            <option value="farmacia">Farmácia/Remédio</option>
+            <option value="agua">Água</option>
+            <option value="luz">Energia/Luz</option>
+            <option value="telefone">Telefone</option>
+            <option value="moradia">Aluguel/Condomínio</option>
+            <option value="outros" selected>Outros</option>
+          </select>
+        </div>
         <div class="field"><label>Descrição (opcional)</label><input type="text" id="nf-descricao" placeholder="Ex: Farmácia, mercado, posto..." /></div>
       </div>
       <div class="form-actions">
@@ -524,7 +537,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=45"></script>
+<script type="module" src="js/app.js?v=46"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
