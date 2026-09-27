@@ -41,8 +41,8 @@ const CATEGORIA_LABEL = {
 // Áreas das contas do Relatório Fixo Mensal — categorias próprias, diferentes das de despesa
 // (viagem/departamento/pessoal), porque contas fixas são outro tipo de gasto (internet, água etc).
 const NOTA_CATEGORIA_LABEL = {
-  internet: "Internet", assinaturas: "Assinaturas/TV", farmacia: "Farmácia/Remédio",
-  agua: "Água", luz: "Energia/Luz", telefone: "Telefone", moradia: "Aluguel/Condomínio", outros: "Outros",
+  assinatura_ia: "Assinatura de IA", armazenamento: "Armazenamento", internet: "Internet",
+  letra_livros: "Letra Livros", farmacia: "Farmácia", estudo_ingles: "Estudo Inglês", outros: "Outros",
 };
 const STATUS_LABEL = {
   pendente: "Pendente", enviado: "Enviado", reembolsado: "Reembolsado", nao_reembolsavel: "—",

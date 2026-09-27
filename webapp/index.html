@@ -385,13 +385,12 @@
         <div class="field">
           <label>Área</label>
           <select id="nf-categoria">
+            <option value="assinatura_ia">Assinatura de IA</option>
+            <option value="armazenamento">Armazenamento</option>
             <option value="internet">Internet</option>
-            <option value="assinaturas">Assinaturas/TV</option>
-            <option value="farmacia">Farmácia/Remédio</option>
-            <option value="agua">Água</option>
-            <option value="luz">Energia/Luz</option>
-            <option value="telefone">Telefone</option>
-            <option value="moradia">Aluguel/Condomínio</option>
+            <option value="letra_livros">Letra Livros</option>
+            <option value="farmacia">Farmácia</option>
+            <option value="estudo_ingles">Estudo Inglês</option>
             <option value="outros" selected>Outros</option>
           </select>
         </div>
@@ -537,7 +536,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=46"></script>
+<script type="module" src="js/app.js?v=47"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
