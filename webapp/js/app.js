@@ -226,11 +226,17 @@ function startListeners() {
     renderCompromissos();
   });
   onSnapshot(collection(db, "relatoriosViagem"), (snap) => {
-    // Mais recentes primeiro. Ordenado no cliente (em vez de orderBy na query) pra não sumir
-    // da lista um relatório antigo que porventura não tenha o campo criadoEm preenchido.
+    // Relatórios "aberto" sempre no topo (são os ativos, em andamento) e, dentro de cada grupo
+    // (aberto / enviado-pago), o mais recente primeiro. Ordenado no cliente (em vez de orderBy
+    // na query) pra não sumir da lista um relatório antigo sem o campo criadoEm preenchido.
     state.relatorios = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.criadoEm?.toMillis?.() ?? 0) - (a.criadoEm?.toMillis?.() ?? 0));
+      .sort((a, b) => {
+        const aAberto = a.status === "aberto" ? 0 : 1;
+        const bAberto = b.status === "aberto" ? 0 : 1;
+        if (aAberto !== bAberto) return aAberto - bAberto;
+        return (b.criadoEm?.toMillis?.() ?? 0) - (a.criadoEm?.toMillis?.() ?? 0);
+      });
     popularSelectRelatorios();
     renderRelatorios();
     // O total "pendente de reembolso" do Dashboard depende do status do relatório
@@ -992,7 +998,6 @@ function relatorioValoresHtml(totalGasto, valorRecebido) {
       </div>`;
   }
   const diferenca = valorRecebido - totalGasto;
-  const classeDiferenca = diferenca >= 0 ? "valor-recebido" : "valor-pendente";
   const sinalDiferenca = diferenca > 0 ? "+" : diferenca < 0 ? "−" : "";
   return `
     <div class="relatorio-valores">
@@ -1002,11 +1007,11 @@ function relatorioValoresHtml(totalGasto, valorRecebido) {
       </div>
       <div class="relatorio-valor-item">
         <span class="relatorio-valor-label">Valor real a receber</span>
-        <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(valorRecebido)}</span>
+        <span class="relatorio-valor-numero valor-enviado">R$ ${formatarMoedaExibicao(valorRecebido)}</span>
       </div>
       <div class="relatorio-valor-item">
         <span class="relatorio-valor-label">Diferença</span>
-        <span class="relatorio-valor-numero ${classeDiferenca}">${sinalDiferenca}R$ ${formatarMoedaExibicao(Math.abs(diferenca))}</span>
+        <span class="relatorio-valor-numero valor-recebido">${sinalDiferenca}R$ ${formatarMoedaExibicao(Math.abs(diferenca))}</span>
       </div>
     </div>`;
 }
@@ -1027,14 +1032,13 @@ function renderSaldoAcumuladoRelatorios() {
   }, 0);
   const totalRecebido = comValorInformado.reduce((s, r) => s + (r.valorRecebido ?? 0), 0);
   const saldo = totalRecebido - totalGasto;
-  const classeSaldo = saldo >= 0 ? "valor-recebido" : "valor-pendente";
   const sinalSaldo = saldo > 0 ? "+" : saldo < 0 ? "−" : "";
 
   container.innerHTML = `
     <div class="hero-balance saldo-acumulado-hero">
       <div>
         <div class="hero-balance-label">Saldo acumulado (gasto x recebido)</div>
-        <div class="hero-balance-value ${classeSaldo}">${sinalSaldo}R$ ${formatarMoedaExibicao(Math.abs(saldo))}</div>
+        <div class="hero-balance-value valor-recebido">${sinalSaldo}R$ ${formatarMoedaExibicao(Math.abs(saldo))}</div>
         <div class="relatorio-valores" style="margin-top: 12px; margin-bottom: 0;">
           <div class="relatorio-valor-item">
             <span class="relatorio-valor-label">Total gasto</span>
@@ -1042,7 +1046,7 @@ function renderSaldoAcumuladoRelatorios() {
           </div>
           <div class="relatorio-valor-item">
             <span class="relatorio-valor-label">Total recebido</span>
-            <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(totalRecebido)}</span>
+            <span class="relatorio-valor-numero valor-enviado">R$ ${formatarMoedaExibicao(totalRecebido)}</span>
           </div>
         </div>
         <p class="field-hint" style="margin-top: 10px;">Considera só os ${comValorInformado.length} relatório(s) com "valor real a receber" preenchido.</p>
