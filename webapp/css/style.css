@@ -295,6 +295,9 @@ input[type="checkbox"], input[type="radio"] {
 .relatorio-valor-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
 .relatorio-valor-numero { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
 .relatorio-valor-vazio { font-family: inherit; font-size: 13px; font-weight: 500; color: var(--text3); }
+.relatorio-valores-wrap { padding: 0 18px 14px; }
+.relatorio-valores-wrap .relatorio-valores { margin-bottom: 0; }
+.saldo-acumulado-hero { margin-bottom: 16px; }
 
 /* Lista de despesas resumida (Departamento) — cada linha mostra só o essencial
    e expande ao clicar pra ver origem/status detalhado e as ações. */
