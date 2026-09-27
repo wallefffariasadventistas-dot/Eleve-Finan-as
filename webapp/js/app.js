@@ -226,7 +226,11 @@ function startListeners() {
     renderCompromissos();
   });
   onSnapshot(collection(db, "relatoriosViagem"), (snap) => {
-    state.relatorios = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    // Mais recentes primeiro. Ordenado no cliente (em vez de orderBy na query) pra não sumir
+    // da lista um relatório antigo que porventura não tenha o campo criadoEm preenchido.
+    state.relatorios = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.criadoEm?.toMillis?.() ?? 0) - (a.criadoEm?.toMillis?.() ?? 0));
     popularSelectRelatorios();
     renderRelatorios();
     // O total "pendente de reembolso" do Dashboard depende do status do relatório
@@ -1007,11 +1011,53 @@ function relatorioValoresHtml(totalGasto, valorRecebido) {
     </div>`;
 }
 
+// Soma gasto x recebido de todos os relatórios que já têm o "valor real a receber" preenchido
+// (só esses dois lados dão pra comparar de verdade) — mostra se, no total, você está recebendo
+// mais do que gasta nas viagens ou o contrário.
+function renderSaldoAcumuladoRelatorios() {
+  const container = document.getElementById("relatorios-saldo-acumulado");
+  const comValorInformado = state.relatorios.filter((r) => r.valorRecebido != null);
+  if (comValorInformado.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+  const totalGasto = comValorInformado.reduce((s, r) => {
+    const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === r.id);
+    return s + despesasDoRelatorio.reduce((s2, d) => s2 + (d.valor ?? 0), 0);
+  }, 0);
+  const totalRecebido = comValorInformado.reduce((s, r) => s + (r.valorRecebido ?? 0), 0);
+  const saldo = totalRecebido - totalGasto;
+  const classeSaldo = saldo >= 0 ? "valor-recebido" : "valor-pendente";
+  const sinalSaldo = saldo > 0 ? "+" : saldo < 0 ? "−" : "";
+
+  container.innerHTML = `
+    <div class="hero-balance saldo-acumulado-hero">
+      <div>
+        <div class="hero-balance-label">Saldo acumulado (gasto x recebido)</div>
+        <div class="hero-balance-value ${classeSaldo}">${sinalSaldo}R$ ${formatarMoedaExibicao(Math.abs(saldo))}</div>
+        <div class="relatorio-valores" style="margin-top: 12px; margin-bottom: 0;">
+          <div class="relatorio-valor-item">
+            <span class="relatorio-valor-label">Total gasto</span>
+            <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(totalGasto)}</span>
+          </div>
+          <div class="relatorio-valor-item">
+            <span class="relatorio-valor-label">Total recebido</span>
+            <span class="relatorio-valor-numero">R$ ${formatarMoedaExibicao(totalRecebido)}</span>
+          </div>
+        </div>
+        <p class="field-hint" style="margin-top: 10px;">Considera só os ${comValorInformado.length} relatório(s) com "valor real a receber" preenchido.</p>
+      </div>
+      <div class="hero-balance-icon">${ICON_SVG.cifrao}</div>
+    </div>`;
+}
+
 function renderRelatorios() {
   const temRelatorioAberto = state.relatorios.some((r) => r.status === "aberto");
   const btnNovaDespesaViagem = document.getElementById("btn-nova-despesa-viagem");
   btnNovaDespesaViagem.disabled = !temRelatorioAberto;
   btnNovaDespesaViagem.title = temRelatorioAberto ? "" : "Crie um relatório de viagem antes de lançar uma despesa";
+
+  renderSaldoAcumuladoRelatorios();
 
   document.getElementById("lista-relatorios").innerHTML = state.relatorios.map((r) => {
     const despesasDoRelatorio = state.despesas.filter((d) => d.relatorioViagemId === r.id);
@@ -1027,8 +1073,8 @@ function renderRelatorios() {
             </div>
             <div class="relatorio-meta">${meta}</div>
           </div>
-          <div class="relatorio-total">R$ ${formatarMoedaExibicao(total)}</div>
         </div>
+        <div class="relatorio-valores-wrap">${relatorioValoresHtml(total, r.valorRecebido)}</div>
         <div class="relatorio-body${state.relatoriosExpandidos.has(r.id) ? " open" : ""}" id="body-${r.id}">
           <div class="rstatus-row">
             <span class="rstatus-label">Status do relatório</span>
@@ -1038,7 +1084,6 @@ function renderRelatorios() {
               <button data-status-relatorio="${r.id}" data-status="pago" class="${r.status === "pago" ? "active-pago" : ""}">Pago</button>
             </div>
           </div>
-          ${relatorioValoresHtml(total, r.valorRecebido)}
           ${resumoPorCategoriaHtml(despesasDoRelatorio)}
           <div class="table-wrap"><table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table></div>
           <div class="form-actions">

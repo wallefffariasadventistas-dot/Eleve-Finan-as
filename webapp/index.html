@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=37" />
+<link rel="stylesheet" href="css/style.css?v=38" />
 </head>
 <body>
 
@@ -115,6 +115,7 @@
           <button class="btn btn-primary" id="btn-novo-relatorio">+ Novo relatório</button>
         </div>
       </header>
+      <div id="relatorios-saldo-acumulado"></div>
       <div id="lista-relatorios"></div>
     </section>
 
@@ -523,7 +524,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script type="module" src="js/app.js?v=43"></script>
+<script type="module" src="js/app.js?v=44"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
