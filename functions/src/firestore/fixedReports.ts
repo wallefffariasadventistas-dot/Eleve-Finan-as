@@ -8,13 +8,12 @@ export interface RelatorioFixo {
 
 /** Área da conta fixa (internet, farmácia etc.) — usada pro resumo por área do relatório fixo mensal. */
 export type CategoriaNotaFixa =
+  | "assinatura_ia"
+  | "armazenamento"
   | "internet"
-  | "assinaturas"
+  | "letra_livros"
   | "farmacia"
-  | "agua"
-  | "luz"
-  | "telefone"
-  | "moradia"
+  | "estudo_ingles"
   | "outros";
 
 export interface NotaFixa {
