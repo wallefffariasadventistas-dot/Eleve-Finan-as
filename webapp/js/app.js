@@ -1092,6 +1092,11 @@ function renderRelatorios() {
           </div>
         </div>
         <div class="relatorio-valores-wrap">${relatorioValoresHtml(total, r.valorRecebido)}</div>
+        <div class="relatorio-acoes-rapidas">
+          <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
+          <button class="btn btn-sm" data-comprovantes-relatorio="${r.id}">Baixar comprovantes (.zip)</button>
+          <button class="btn btn-sm" data-editar-relatorio="${r.id}">Editar relatório</button>
+        </div>
         <div class="relatorio-body${state.relatoriosExpandidos.has(r.id) ? " open" : ""}" id="body-${r.id}">
           <div class="rstatus-row">
             <span class="rstatus-label">Status do relatório</span>
@@ -1104,9 +1109,6 @@ function renderRelatorios() {
           ${resumoPorCategoriaHtml(despesasDoRelatorio)}
           <div class="table-wrap"><table><tbody>${despesasDoRelatorio.map(linhaDespesaSimples).join("") || "<tr><td>Nenhuma despesa ainda.</td></tr>"}</tbody></table></div>
           <div class="form-actions">
-            <button class="btn btn-sm btn-primary" data-pdf-relatorio="${r.id}">Baixar PDF detalhado</button>
-            <button class="btn btn-sm" data-comprovantes-relatorio="${r.id}">Baixar comprovantes (.zip)</button>
-            <button class="btn btn-sm" data-editar-relatorio="${r.id}">Editar relatório</button>
             <button class="btn btn-sm btn-danger" data-excluir-relatorio="${r.id}">Excluir relatório</button>
           </div>
         </div>
