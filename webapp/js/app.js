@@ -536,6 +536,15 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+// Mostra quantas despesas estão marcadas, pra deixar claro que o download vai baixar só
+// os comprovantes selecionados em vez de todos os filtrados pelo status.
+function atualizarBotaoComprovantesDepartamento() {
+  const btn = document.getElementById("btn-comprovantes-departamento");
+  if (!btn) return;
+  const n = state.selecionadas.size;
+  btn.textContent = n > 0 ? `Baixar comprovantes selecionadas (${n})` : "Baixar comprovantes (.zip)";
+}
+
 function renderDepartamento() {
   const status = document.getElementById("filtro-status-departamento").value;
   const filtradas = state.despesas.filter((d) =>
@@ -547,7 +556,7 @@ function renderDepartamento() {
     return `
       <div class="despesa-card">
         <div class="despesa-card-header" data-toggle-despesa="${d.id}">
-          <input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} />
+          <input type="checkbox" class="chk-despesa" data-id="${d.id}" ${d.statusReembolso === "pendente" ? "" : "disabled"} ${state.selecionadas.has(d.id) ? "checked" : ""} />
           <span class="icon-badge">${ICON_SVG.departamento}</span>
           <div class="despesa-card-info">
             <div class="despesa-card-desc">${d.descricao || "—"}</div>
@@ -599,8 +608,10 @@ function renderDepartamento() {
     chk.addEventListener("click", (e) => e.stopPropagation());
     chk.addEventListener("change", () => {
       chk.checked ? state.selecionadas.add(chk.dataset.id) : state.selecionadas.delete(chk.dataset.id);
+      atualizarBotaoComprovantesDepartamento();
     });
   });
+  atualizarBotaoComprovantesDepartamento();
   document.querySelectorAll("#lista-departamento [data-toggle-despesa]").forEach((header) => {
     header.addEventListener("click", () => {
       const id = header.dataset.toggleDespesa;
@@ -1937,6 +1948,7 @@ async function acionarReembolso(filtro = {}) {
     const { data } = await enviarParaReembolso(filtro);
     toast(`${data.enviado} despesa(s) enviada(s) para reembolso por e-mail.`);
     state.selecionadas.clear();
+    atualizarBotaoComprovantesDepartamento();
   } catch (err) {
     toast("Erro ao enviar para reembolso: " + err.message, true);
   }
@@ -2074,6 +2086,11 @@ document.getElementById("btn-pdf-departamento").addEventListener("click", () => 
 });
 
 document.getElementById("btn-comprovantes-departamento").addEventListener("click", () => {
+  if (state.selecionadas.size > 0) {
+    const selecionadas = state.despesas.filter((d) => state.selecionadas.has(d.id));
+    baixarComprovantesZip(selecionadas, "eleve-comprovantes-departamento-selecionadas");
+    return;
+  }
   const status = document.getElementById("filtro-status-departamento").value;
   const filtradas = state.despesas.filter((d) => d.tipoDespesa === "departamento" && (!status || d.statusReembolso === status));
   baixarComprovantesZip(filtradas, "eleve-comprovantes-departamento");
