@@ -410,6 +410,8 @@ function botoesAcaoDespesa(d) {
   const recibos = recibosDe(d);
   return `<div class="row-actions">
     ${recibos.length ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo${recibos.length > 1 ? ` (${recibos.length})` : ""}</button>` : ""}
+    ${d.reembolsavel && d.statusReembolso === "pendente" ? `<button class="btn btn-sm" data-marcar-enviado-despesa="${d.id}">📤 Marcar como enviado</button>` : ""}
+    ${d.reembolsavel && (d.statusReembolso === "pendente" || d.statusReembolso === "enviado") ? `<button class="btn btn-sm btn-primary" data-marcar-reembolsado-despesa="${d.id}">✅ Marcar como reembolsado</button>` : ""}
     <button class="btn btn-sm" data-editar-despesa="${d.id}">Editar</button>
     <button class="btn btn-sm btn-danger" data-excluir-despesa="${d.id}">Excluir</button>
   </div>`;
@@ -489,6 +491,39 @@ document.addEventListener("click", async (e) => {
       toast("Despesa excluída.");
     } catch (err) {
       toast("Erro ao excluir despesa: " + err.message, true);
+    }
+    return;
+  }
+
+  // Marca uma despesa isolada (ex: dentro de um relatório de viagem ainda aberto) como
+  // enviada/reembolsada antes do relatório inteiro ser fechado — sai da contagem de
+  // "pendente de reembolso" na hora, sem precisar esperar o relatório inteiro ser pago.
+  const marcarEnviadoDespesaBtn = e.target.closest("[data-marcar-enviado-despesa]");
+  if (marcarEnviadoDespesaBtn) {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, "despesas", marcarEnviadoDespesaBtn.dataset.marcarEnviadoDespesa), {
+        statusReembolso: "enviado",
+        atualizadoEm: serverTimestamp(),
+      });
+      toast("Despesa marcada como enviada para reembolso.");
+    } catch (err) {
+      toast("Erro ao marcar como enviado: " + err.message, true);
+    }
+    return;
+  }
+
+  const marcarReembolsadoDespesaBtn = e.target.closest("[data-marcar-reembolsado-despesa]");
+  if (marcarReembolsadoDespesaBtn) {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, "despesas", marcarReembolsadoDespesaBtn.dataset.marcarReembolsadoDespesa), {
+        statusReembolso: "reembolsado",
+        atualizadoEm: serverTimestamp(),
+      });
+      toast("Despesa marcada como reembolsada.");
+    } catch (err) {
+      toast("Erro ao marcar como reembolsado: " + err.message, true);
     }
     return;
   }
