@@ -412,6 +412,7 @@ function botoesAcaoDespesa(d) {
     ${recibos.length ? `<button class="btn btn-sm" data-ver-comprovante="${d.id}">Ver recibo${recibos.length > 1 ? ` (${recibos.length})` : ""}</button>` : ""}
     ${d.reembolsavel && d.statusReembolso === "pendente" ? `<button class="btn btn-sm" data-marcar-enviado-despesa="${d.id}">📤 Marcar como enviado</button>` : ""}
     ${d.reembolsavel && (d.statusReembolso === "pendente" || d.statusReembolso === "enviado") ? `<button class="btn btn-sm btn-primary" data-marcar-reembolsado-despesa="${d.id}">✅ Marcar como reembolsado</button>` : ""}
+    ${d.reembolsavel && (d.statusReembolso === "enviado" || d.statusReembolso === "reembolsado") ? `<button class="btn btn-sm" data-desmarcar-despesa="${d.id}">↩️ Desmarcar (voltar pra pendente)</button>` : ""}
     <button class="btn btn-sm" data-editar-despesa="${d.id}">Editar</button>
     <button class="btn btn-sm btn-danger" data-excluir-despesa="${d.id}">Excluir</button>
   </div>`;
@@ -528,6 +529,21 @@ document.addEventListener("click", async (e) => {
     return;
   }
 
+  const desmarcarDespesaBtn = e.target.closest("[data-desmarcar-despesa]");
+  if (desmarcarDespesaBtn) {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, "despesas", desmarcarDespesaBtn.dataset.desmarcarDespesa), {
+        statusReembolso: "pendente",
+        atualizadoEm: serverTimestamp(),
+      });
+      toast("Despesa voltou a ficar pendente de reembolso.");
+    } catch (err) {
+      toast("Erro ao desmarcar: " + err.message, true);
+    }
+    return;
+  }
+
   const verNotaBtn = e.target.closest("[data-ver-nota]");
   if (verNotaBtn) {
     e.stopPropagation();
@@ -603,42 +619,12 @@ function renderDepartamento() {
         <div class="despesa-card-body${state.departamentoExpandido.has(d.id) ? " open" : ""}" id="despesa-body-${d.id}">
           <div class="despesa-card-detalhe"><span>Origem</span><span>${d.origem ?? "—"}</span></div>
           <div class="row-actions">
-            ${d.statusReembolso === "pendente" ? `<button class="btn btn-sm" data-marcar-enviado="${d.id}">📤 Marcar como enviado</button>` : ""}
-            ${(d.statusReembolso === "pendente" || d.statusReembolso === "enviado") ? `<button class="btn btn-sm btn-primary" data-marcar-reembolsado="${d.id}">✅ Marcar como reembolsado</button>` : ""}
             ${botoesAcaoDespesa(d)}
           </div>
         </div>
       </div>`;
   }).join("") || `<p class="page-subtitle" style="padding: 18px;">Nenhuma despesa de departamento lançada ainda.</p>`;
 
-  document.querySelectorAll("#lista-departamento [data-marcar-enviado]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      try {
-        await updateDoc(doc(db, "despesas", btn.dataset.marcarEnviado), {
-          statusReembolso: "enviado",
-          atualizadoEm: serverTimestamp(),
-        });
-        toast("Despesa marcada como enviada para reembolso.");
-      } catch (err) {
-        toast("Erro ao marcar como enviado: " + err.message, true);
-      }
-    });
-  });
-  document.querySelectorAll("#lista-departamento [data-marcar-reembolsado]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      try {
-        await updateDoc(doc(db, "despesas", btn.dataset.marcarReembolsado), {
-          statusReembolso: "reembolsado",
-          atualizadoEm: serverTimestamp(),
-        });
-        toast("Despesa marcada como reembolsada.");
-      } catch (err) {
-        toast("Erro ao marcar como reembolsado: " + err.message, true);
-      }
-    });
-  });
   document.querySelectorAll("#lista-departamento .chk-despesa").forEach((chk) => {
     chk.addEventListener("click", (e) => e.stopPropagation());
     chk.addEventListener("change", () => {
